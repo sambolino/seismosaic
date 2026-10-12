@@ -1,62 +1,203 @@
-# Candidate sources and illustrative mappings
+# Source review and illustrative mappings
 
-These are source descriptions and proposed mappings for model review. No adapter is implemented and the repository has not tested end-to-end retrieval. Programmatic access is a selection criterion; manually downloaded files are not the proposed workflow.
+First review: 2026-10-12. This is a source-access and modelling note, not an adapter implementation. Public documentation and small anonymous HTTP responses were inspected. A successful sample request does not establish completeness, continuous availability or a validated ingestion workflow.
 
-## Candidate roles
+## Current assessment
 
-| Source | Proposed role | Access basis |
+| Source | Representative response | Query/format basis | Coverage and present decision |
+| --- | --- | --- | --- |
+| USGS | HTTP 200; one historical event in GeoJSON | FDSN event HTTP query | Global catalogue aggregation; use as the first earthquake mapping example |
+| EMSC | HTTP 200; one historical event in JSON | FDSN event HTTP query | Alternative event catalogue; preserve separate estimates and identifiers |
+| GFZ Kp/ap | HTTP 200; three Kp interval values | JSON service and documented Python client | Kp/ap archive is documented since 1932; retain interval and definitive/preliminary status |
+| GIRO/DIDBase | Documentation/form reachable; station listing and FastChar calls returned HTTP 504 in this review | Documented HTTP services, form and SAO Explorer | Station-dependent coverage; access and a representative response remain to be confirmed locally |
+| GOES XRS | HTTP 200; rolling JSON feed inspected | SWPC recent-data JSON; historical NCEI archive | Complementary solar X-ray context; a historical study needs a separately selected archive product |
+
+No manual file-download step is proposed as the eventual workflow. A programmatic service can return JSON or text; response format alone does not determine whether access is usable.
+
+The producer qualifier identifies the producer of the represented scientific record or catalogue product. The channel identifies delivery. Retain reported author/contributor information rather than replacing it with a service's name.
+
+## USGS earthquake event service
+
+[API documentation](https://earthquake.usgs.gov/fdsnws/event/1/) and [GeoJSON fields](https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php).
+
+Endpoint: `https://earthquake.usgs.gov/fdsnws/event/1/query`.
+
+| Selection/control | Representative parameters |
+| --- | --- |
+| Event time | `starttime`, `endtime`; explicit UTC timestamps |
+| Region | Latitude/longitude bounds, or `latitude`, `longitude`, `maxradiuskm` |
+| Magnitude/depth | `minmagnitude`, `maxmagnitude`, `mindepth`, `maxdepth` |
+| Specific record or updates | `eventid`, `updatedafter` |
+| Output size/order | `limit`, 1-based `offset`, `orderby` |
+| Representation | `format=geojson`; QuakeML/XML and CSV/text are also supported |
+
+The service limits a query to 20,000 events. A later client would need bounded selections and complete pagination, including checks for missing or duplicated results. The API searches catalogue events, not seismic station waveforms. Worldwide query support does not imply uniform detection thresholds or historical completeness. Choose a catalogue, period and magnitude range before assessing coverage.
+
+GeoJSON returns a FeatureCollection. These paths are relative to an `event`:
+
+| Provider field | Proposed semantic path or retention rule |
+| --- | --- |
+| `features[].id` | `identity.source_id` |
+| `properties.time` | `origin.time.instant`; convert epoch milliseconds to UTC |
+| `geometry.coordinates[0]` | `origin.position.longitude`, degrees |
+| `geometry.coordinates[1]` | `origin.position.latitude`, degrees |
+| `geometry.coordinates[2]` | `origin.depth`, km; retain the source's depth reference |
+| `properties.mag` | `magnitude.value` |
+| `properties.magType` | `magnitude.scale`; preserve source spelling |
+| `properties.status` | `quality.status` |
+| `properties.net`, `sources`, `ids` | Retain contributor and alternate-identifier evidence; fuller mapping pending |
+| `properties.updated` | Retain update time; the draft does not yet define a revision timestamp field |
+
+Absent values remain absent or unavailable, not zero. A summary contains preferred estimates; retaining all alternative origins or magnitudes needs a richer representation.
+
+## EMSC earthquake event service
+
+[Service demonstration](https://www.seismicportal.eu/fdsn-wsevent.html), [current OpenAPI](https://www.seismicportal.eu/fdsnws/event/1/openapi.json) and [data-product specification](https://www.emsc-csem.org/Files/epos/specifications/Specs_fdsnevent-WS.pdf).
+
+Endpoint: `https://www.seismicportal.eu/fdsnws/event/1/query`.
+
+Use explicit `starttime`/`endtime`, geographic bounds or radius in degrees, magnitude/depth limits, `catalog`, `contributor`, `limit`, `offset`, `orderby` and `updatedafter`. Record lookup distinguishes `eventid` from the EMSC website identifier `evid`.
+
+Choose `format=json` for the first comparison. QuakeML/XML and text are also documented; text is a pipe-separated representation rather than a safely assumed comma-delimited file. Default output is XML. The service documents a 20,000-event response limit and supports counting matches before retrieval.
+
+Coverage is catalogue-specific: EMSC-RTS is the near-realtime aggregate; EMSC-EMB is the older European-Mediterranean bulletin. The current API notes RTS use since 2012. Historical bounds and completeness must be checked for the selected catalogue and study interval. Dataset attribution is specified under CC BY 4.0 in the [service terms](https://www.seismicportal.eu/terms.html).
+
+The inspected JSON contains a FeatureCollection with lower-case property names. Documentation examples do not all use identical field spelling; mappings below follow the observed response.
+
+| Observed provider field | Proposed semantic path or retention rule |
+| --- | --- |
+| `features[].id`, `properties.unid` | `identity.source_id`; retain the service identifier |
+| `properties.source_id` | Retain the distinct EMSC website identifier; do not replace the service identifier silently |
+| `properties.time` | `origin.time.instant`; UTC timestamp string |
+| `properties.lat`, `properties.lon` | `origin.position.latitude`, `origin.position.longitude` |
+| `properties.depth` | `origin.depth`, km |
+| `properties.mag`, `properties.magtype` | `magnitude.value`, `magnitude.scale` |
+| `properties.auth`, `source_catalog` | Retain authorship/catalogue provenance |
+| `properties.lastupdate` | Retain update time; revision mapping pending |
+| `properties.evtype` | Retain the source's event-type code until its controlled-value mapping is reviewed |
+
+**Depth check:** the sample reported `properties.depth=130.1` but `geometry.coordinates[2]=-130.1`. Use the explicit depth property; do not reuse the USGS third-coordinate mapping blindly.
+
+**Time check:** a date-only end boundary returned an event later on that calendar day in the sample. Explicit midnight timestamps returned a record within the intended one-day interval. Later clients must check returned event times against the requested window.
+
+### A useful catalogue comparison example
+
+The explicit one-day queries produced two candidate corresponding entries near Vanuatu:
+
+| Source | Identifier | Origin time (UTC) | Depth (km) | Magnitude/type |
+| --- | --- | --- | --- | --- |
+| USGS | `us7000rlzn` | 2026-01-01T21:35:02.491Z | 139.06 | 5.2 / mb |
+| EMSC | `20260101_0000344` | 2026-01-01T21:35:01.65Z | 130.1 | 5.2 / mb |
+
+Similar time/location/magnitude makes this a useful candidate for reviewing identity and estimate representation. It is not an implemented cross-match or an independently confirmed identity link. Separate reports and estimates must survive any later association.
+
+## GFZ Kp and ap
+
+[Access documentation](https://kp.gfz.de/en/data), [JSON format](https://kp.gfz.de/app/format/json.txt) and [index definitions](https://www.gfz.de/en/section/geomagnetism/data-products-services/kp-index/related-indices).
+
+Endpoint: `https://kp.gfz.de/app/json/`.
+
+Parameters: `start`, `end`, `index=Kp` or `index=ap`; optional `status=def` requests definitive values. The documented Python client offers the same time/index selection. JSON is sufficient for the initial mapping review.
+
+The archive is documented since 1932. Both Kp and lowercase ap describe three-hour intervals; daily Ap is different. ap is derived from Kp on an equivalent-range scale, so the pair should not be treated as independent measurements.
+
+| Observed/source field | Relative path in `geomagnetic_index` | Interpretation |
 | --- | --- | --- |
-| [USGS earthquake event service](https://earthquake.usgs.gov/fdsnws/event/1/) | Seismic catalogue entries | Documented FDSN HTTP service; GeoJSON and QuakeML representations |
-| [EMSC seismic portal](https://www.seismicportal.eu/webservices.html) | Alternative seismic catalogue | Documented event web service; overlapping catalogue entries need an identity policy |
-| [GIRO/DIDBase](https://giro.uml.edu/didbase/scaled.php) | Station-based ionogram-derived characteristics | HTTP retrieval is described in the [GIRO resource metadata](https://spase-metadata.org/ISWI/NumericalData/GIRO/CHARS/PT15M.html); station coverage and usable access still need checking |
-| [GFZ Kp/ap](https://kp.gfz.de/en/data) | Geomagnetic context | Documented JSON web service and Python client |
+| Selected index name | `name` | Kp or ap |
+| `Kp[i]` or corresponding `ap[i]` | `value` | Preserve the chosen scale |
+| `datetime[i]` | `time.start` | Start of the three-hour UTC interval |
+| Documented duration | `time.end` | Start plus three hours; record this mapping derivation |
+| `status[i]` | `quality.status` | `def` or `pre`, when supplied |
+| `meta.source`, `meta.license` | Provenance/attribution retained for review | Observed response uses `meta`; format description calls it `metadata` |
+| Index definition | `unit` | Kp is dimensionless; ap equivalent range is in units of 2 nT |
 
-The producer qualifier identifies the producer of the represented scientific record or catalogue product; the channel identifies its delivery route. A service name alone must not overwrite reported scientific authorship or contributor information.
+Parallel arrays must be aligned by index and checked for equal lengths. A request ending at 06:00 returned starts at 00:00, 03:00 and 06:00; the last record describes 06:00–09:00. Selection boundaries are not the same as the support of every returned interval.
 
-## USGS GeoJSON catalogue entry
+## GIRO/DIDBase
 
-A Feature can provide the starter event entry's preferred origin and magnitude estimate. This proposal is for a catalogue representation; detailed alternative estimates would need a richer model and source inspection.
+[Characteristic form](https://giro.uml.edu/didbase/scaled.php), [HTTP service examples](https://giro.uml.edu/rix/test.html), [resource metadata](https://spase-metadata.org/ISWI/NumericalData/GIRO/CHARS/PT15M.html) and [provider rules](https://giro.uml.edu/didbase/RulesOfTheRoad.html).
 
-Paths below are relative to an `event` record.
+For numeric characteristics, the official examples link to:
 
-| Provider field | Proposed semantic path | Mapping consideration |
-| --- | --- | --- |
-| `id` | `identity.source_id` | Retain the catalogue identifier |
-| `properties.time` | `origin.time.instant` | Express the epoch-millisecond event time as UTC |
-| `geometry.coordinates[0]` | `origin.position.longitude` | GeoJSON longitude; degrees |
-| `geometry.coordinates[1]` | `origin.position.latitude` | GeoJSON latitude; degrees |
-| `geometry.coordinates[2]` | `origin.depth` | Reported depth; kilometres; do not infer an unreported depth reference |
-| `properties.mag` | `magnitude.value` | Preserve an unavailable magnitude as unavailable rather than substituting zero |
-| `properties.magType` | `magnitude.scale` | Preserve the supplied magnitude type |
+`https://lgdc.uml.edu/fastchar/getbest?ursiCode=AU930&charName=foF2,hmF2,foEs`
 
-This is one catalogue entry. Adding EMSC entries would not create independent earthquake events merely because a second provider reports them. Cross-provider identification and revisions remain open modelling questions.
+This is an anonymous latest-24-hour example, not a confirmed arbitrary-date query. `ursiCode` selects a station and `charName` selects characteristics. The visible form uses `location`, `chosenchars[]`, `date_start` and `date_end`; it accepts a UTC time interval. These form names must not be assumed to be FastChar servlet parameters. Resource metadata also describes a DIDBGetValues servlet returning ASCII text.
 
-## GFZ Kp or ap
+| Information to retain | Draft-model placement |
+| --- | --- |
+| Station identifier | `ionospheric_observation.station_id`; corresponding `station.identity.source_id` |
+| Characteristic timestamp | `ionospheric_observation.time.instant` |
+| foF2 value and units | `foF2.value`, MHz |
+| hmF2 value and units | `hmF2.value`, km |
+| Scaling confidence | Quantity- or observation-scoped `quality.confidence_score` |
+| Qualitative/descriptive letters | `quality.flags`; retain original letters |
+| Manual/automatic interpretation | `quality.scaling`; preserve the source's indication |
+| Observatory and processing source | Corresponding provenance |
 
-The documented service takes a start, end and index name. Its timestamps refer to the starts of index intervals. Kp and ap have three-hour time support; lowercase ap must be distinguished from daily Ap.
+Resource metadata describes confidence from 0 to 100 and QD letters; `//` indicates automatic interpretation. Confidence 100 alone does not distinguish manual from automatic scaling. Preserve both pieces of information.
 
-Paths below are relative to a `geomagnetic_index` record.
+Coverage varies by station and characteristic. The collection metadata starts in 1987 and gives a nominal 15-minute cadence, but neither establishes a complete record at every site or a constant cadence. The station/availability service is `https://lgdc.uml.edu/ionoweb/locations`.
 
-| Source meaning | Proposed semantic path | Mapping consideration |
-| --- | --- | --- |
-| Requested/reported index | `name` | Kp or ap |
-| Index value | `value` | Retain the chosen index representation |
-| Interval start | `time.start` | UTC interval start |
-| Three-hour time support | `time.end` | Derive the interval end from the documented duration and retain that derivation in the mapping notes |
-| Index unit interpretation | `unit` | Kp is dimensionless on its index scale; ap expresses equivalent range in units of 2 nT |
-| Definitive/nowcast status | `quality.status` | Preserve the source's reported status |
-| GFZ attribution and service | `provenance` | Retain producer and delivery context |
+**Access result:** the public form and service-example page were readable; the anonymous characteristic and station-list requests returned HTTP 504 here. This does not establish that GIRO lacks a programmatic interface or that the services fail for other clients. Confirm a small local request and station coverage before treating retrieval as usable.
 
-The observation time can later be associated with a relevant interval under explicit comparison rules. This mapping does not create additional temporal resolution or imply that Kp and ap are independent predictors.
+Ionograms themselves are available through the DIDBase portal and SAO Explorer routes. An image/raw ionogram is a separate data product from its scaled characteristics. A reproducible machine route and representative ionogram format have not been established in this review.
 
-The [GFZ index definitions](https://www.gfz.de/en/section/geomagnetism/data-products-services/kp-index/related-indices) describe the relationship between Kp, ap and daily Ap and the ap unit interpretation.
+LGDC publishes CC BY-NC-SA 4.0 restrictions, attribution/publication requirements and account/sharing conditions. The documented SAO Explorer read-only account route is separate from the anonymous HTTP example. Source access and redistribution terms need to be checked for the chosen use; this repository's BSD licence does not cover GIRO data.
 
-## GIRO/DIDBase questions
+## GOES as complementary context
 
-The first domain quantities are foF2 in MHz and hmF2 in km. Confirm the selected characteristic identifiers, station identifiers, available cadence, coverage, scaling information and quality fields against representative service responses before committing a mapping.
+Choose a product, not just the satellite mission. The first concrete candidate is **GOES XRS soft X-ray irradiance**, useful as solar-flare context.
 
-The resource documentation describes manual or automatic ionogram interpretation and confidence/quality information. An interpretation method, confidence score and station/time context belong with the derived characteristic. They should not be discarded while constructing a common representation.
+[SWPC product description](https://www.spaceweather.gov/products/goes-x-ray-flux), [rolling feed](https://services.swpc.noaa.gov/json/goes/primary/xrays-6-hour.json) and [NCEI EXIS archive](https://www.ncei.noaa.gov/products/goes-r-extreme-ultraviolet-xray-irradiance).
 
-## Deferred candidates
+SWPC supplies one-minute averages for the 0.05–0.4 nm and 0.1–0.8 nm bands. The fixed feed URL returns a recent rolling window; it is not a start/end query for arbitrary historical dates.
 
-GOES solar observations need a specific product and purpose before a mapping is proposed. LXCat cross-sections or reaction data would feed a separately chosen physical model; they are not another observation series to align directly with earthquakes.
+| Inspected JSON field | Information to preserve |
+| --- | --- |
+| `time_tag` | UTC sample time |
+| `satellite` | Actual producing satellite; do not infer it from the `primary` directory name |
+| `energy` | Wavelength-band label |
+| `flux` | Reported X-ray irradiance; W m−2 |
+| `observed_flux`, `electron_correction` | Additional reported values; interpret against product documentation |
+| `electron_contaminaton` | Observed flag spelling; retain it exactly in source notes |
+
+The feed responded with HTTP 200 in this review. Its directory listing returned HTTP 403; that did not prevent access to the documented individual JSON feed. Instrument calibration, eclipse gaps, selected satellite and product version can affect interpretation.
+
+NCEI provides historical operational and science-quality EXIS products in NetCDF, including XRS averages and flare products. Historical access is an archive-product task with format/library and calibration choices, not the same API contract as SWPC's recent feed. No manual-download workflow or historical adapter is selected here.
+
+A GOES quantity/record branch has not yet been added to the ontology. LXCat likewise remains a possible input to a later physical model, outside this observational access review.
+
+## Small local reproduction queries
+
+These commands print responses for inspection. They do not implement ingestion or write data into the repository. Use explicit UTC boundaries and check returned fields before proposing mappings.
+
+```bash
+curl --fail --get 'https://earthquake.usgs.gov/fdsnws/event/1/query' \
+  --data-urlencode 'format=geojson' \
+  --data-urlencode 'starttime=2026-01-01T00:00:00' \
+  --data-urlencode 'endtime=2026-01-02T00:00:00' \
+  --data-urlencode 'minmagnitude=5' --data-urlencode 'limit=1'
+
+curl --fail --get 'https://www.seismicportal.eu/fdsnws/event/1/query' \
+  --data-urlencode 'format=json' \
+  --data-urlencode 'starttime=2026-01-01T00:00:00' \
+  --data-urlencode 'endtime=2026-01-02T00:00:00' \
+  --data-urlencode 'minmagnitude=5' --data-urlencode 'limit=1'
+
+curl --fail --get 'https://kp.gfz.de/app/json/' \
+  --data-urlencode 'start=2026-01-01T00:00:00Z' \
+  --data-urlencode 'end=2026-01-01T06:00:00Z' \
+  --data-urlencode 'index=Kp' --data-urlencode 'status=def'
+
+curl --fail --max-time 30 --get 'https://lgdc.uml.edu/fastchar/getbest' \
+  --data-urlencode 'ursiCode=AU930' \
+  --data-urlencode 'charName=foF2,hmF2,foEs'
+
+curl --fail 'https://services.swpc.noaa.gov/json/goes/primary/xrays-6-hour.json'
+```
+
+AU930 comes from the official service example; it is not a selected study station.
+
+## Next model discussion
+
+Start with the earthquake entries and the interval index example. Before extending declarations, agree how to retain multiple source identifiers, alternative origin/magnitude estimates and update times. For the ionospheric part, select one station and characteristic with verified coverage/access. The study region and scientific comparison windows are still open.
