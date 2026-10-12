@@ -14,6 +14,8 @@ First review: 2026-10-12; identity/estimate and interval follow-up on the same d
 
 No manual file-download step is proposed as the eventual workflow. A programmatic service can return JSON or text; response format alone does not determine whether access is usable.
 
+[Standards alignment](standards.md) distinguishes FDSN interfaces, QuakeML event representations, IAGA-endorsed index definitions and SAO/URSI ionospheric conventions. The mappings below are a small semantic projection, not a standards-conformance or lossless conversion claim.
+
 The producer qualifier identifies the producer of the represented scientific record or catalogue product. The channel identifies delivery. Retain reported author/contributor information rather than replacing it with a service's name.
 
 ## USGS earthquake event service
@@ -151,12 +153,15 @@ This is an anonymous latest-24-hour example, not a confirmed arbitrary-date quer
 | Characteristic timestamp | `ionospheric_observation.time.instant` |
 | foF2 value and units | `foF2.value`, MHz |
 | hmF2 value and units | `hmF2.value`, km |
-| Scaling confidence | Quantity- or observation-scoped `quality.confidence_score` |
-| Qualitative/descriptive letters | `quality.flags`; retain original letters |
+| Source confidence token, including special codes | Quantity- or observation-scoped `quality.confidence_code`; retain verbatim |
+| Documented 0–100 scaling score | Corresponding `quality.confidence_score`; exclude special codes |
+| URSI qualifying/descriptive letters | `quality.qualifying_letter`, `quality.descriptive_letter`; retain letters and their roles |
 | Manual/automatic interpretation | `quality.scaling`; preserve the source's indication |
 | Observatory and processing source | Corresponding provenance |
 
-Resource metadata describes confidence from 0 to 100 and QD letters; `//` indicates automatic interpretation. Confidence 100 alone does not distinguish manual from automatic scaling. Preserve both pieces of information.
+Resource metadata describes confidence from 0 to 100 and QD letters, including a `//` automatic-interpretation convention. [PITHIA's FastChar metadata](https://esc.pithia.eu/data-collections/DataCollection_DIDBase_VerifiedCleanScaling/) additionally documents `CS=999` for verified-clean manual scaling. The source token therefore cannot be treated unconditionally as a 0–100 score. Keep `confidence_code="999"`, use the documented manual/verified-clean interpretation, and leave `confidence_score` absent. Neither confidence 100 nor an ordinary score alone establishes manual or automatic scaling. Interpretation rules belong to the documented route; they are not interchangeable across SAO, SAOXML and tabulated services.
+
+The [standards note](standards.md) records this rule and the SAOXML scaling/letter correspondence. No working FastChar payload or SAO export was inspected, so field placement, quality scope and special-code behaviour still need a bounded response check.
 
 Coverage varies by station and characteristic. The collection metadata starts in 1987 and gives a nominal 15-minute cadence, but neither establishes a complete record at every site or a constant cadence. The station/availability service is `https://lgdc.uml.edu/ionoweb/locations`.
 

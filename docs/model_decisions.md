@@ -4,6 +4,12 @@
 
 Seismosaic keeps Alertissimo's containers, fields, projections, permissive references, repeated references, producer/channel qualification and separate connection plane. It introduces domain vocabulary rather than runtime structures.
 
+## Alignment with domain standards
+
+Use a small QuakeML BED 1.2 projection for event estimates, SAO/URSI conventions for ionospheric characteristics and interpretation metadata, and GFZ's documented definitions for the geomagnetic indices. [Standards alignment](standards.md) records the correspondence, format boundaries and fields still outside the projection.
+
+The modelling contribution is the representation of these families together with their time support, spatial context, quality, provenance and explicit comparison basis. Existing seismic event/origin/magnitude distinctions guide the vocabulary. The draft does not claim to replace QuakeML, SAO or existing service clients.
+
 ## Provisional root
 
 The draft uses `study` as a research-context collection of records. It is not an earthquake identity, a station identity or an implementation of a workflow. No record becomes scientifically associated with another merely because both occur in a study.
@@ -54,6 +60,10 @@ An `ionospheric_observation` describes an ionogram-derived characteristic at a s
 An ionogram is the underlying data product, not interchangeable with its derived characteristic. Linking to ionograms can be added once the required representation is agreed.
 
 Quality and provenance can be described at the observation or characteristic level. If the source supplies different quality or derivation information for foF2 and hmF2, retain it with the corresponding quantity.
+
+Keep URSI qualifying and descriptive letters in separate quantity fields when supplied. `quality.scaling` describes ionogram interpretation; `quality.evaluation_mode` retains a seismic estimate's reported evaluation mode. These roles should not be conflated because both can describe manual or automatic processing.
+
+FastChar's source confidence token belongs in `quality.confidence_code`. PITHIA documents `CS=999` for verified-clean manual scaling: retain the token and its documented interpretation, with no numeric `confidence_score`. Ordinary scores retain the documented 0–100 scale; special codes are not scores. This is a route-specific mapping decision awaiting an inspected successful response, not a claim about every GIRO interface. See the mapping table in [standards alignment](standards.md).
 
 The station identifier in an observation is the provider's reported station identifier. An `observed_at` edge can express a connection to a separately described station.
 

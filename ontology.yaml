@@ -9,6 +9,9 @@
 # The study root and record families are provisional. No level profile is
 # assigned yet. References are permissive under the shared metamodel.
 # Source-specific field mappings are documented separately in docs/sources.md.
+# Standard concept alignment and projection limits: docs/standards.md.
+# Seismic estimates follow a small QuakeML BED 1.2 projection; ionospheric
+# quantities and interpretation metadata draw on SAO/URSI conventions.
 # UTC is the target time scale for these initial examples; source conversions
 # and reference information must be documented rather than assumed.
 #
@@ -55,15 +58,27 @@
 
 <quality>:
   [status]:
-    description: "Source-reported quality, publication or definitive/nowcast status"
+    description: "Quality, publication or index status in its source vocabulary or an explicitly documented mapping; no universal quality rank"
+    type: string
+  [evaluation_mode]:
+    description: "Source-reported seismic estimate evaluation mode, as in QuakeML; distinct from ionogram scaling"
     type: string
   [scaling]:
     description: "Reported manual or automatic interpretation of an ionogram-derived characteristic"
     type: string
+  [confidence_code]:
+    description: "Source confidence token retained verbatim, including special scaling codes; interpret against the documented source route"
+    type: string
   [confidence_score]:
-    description: "Reported GIRO scaling confidence on the source's 0–100 scale"
+    description: "GIRO confidence on a documented 0–100 score scale; special source codes such as FastChar CS=999 are excluded"
     type: float
     range: [0, 100]
+  [qualifying_letter]:
+    description: "Source-reported URSI qualifying letter for the enclosing ionospheric characteristic"
+    type: string
+  [descriptive_letter]:
+    description: "Source-reported URSI descriptive letter for the enclosing ionospheric characteristic"
+    type: string
   [flags]:
     description: "Source-reported quality or interpretation flags"
     type: string
@@ -91,7 +106,7 @@
     type: string
 
 <origin>:
-  description: "One origin estimate represented by the enclosing catalogue entry"
+  description: "One origin estimate represented by the enclosing catalogue entry; aligned with QuakeML Origin"
   $ref: <identity>
   $ref: <time>
   $ref: <position>
@@ -109,7 +124,7 @@
     type: string
 
 <magnitude>:
-  description: "One magnitude estimate represented by the enclosing catalogue entry"
+  description: "One magnitude estimate represented by the enclosing catalogue entry; aligned with QuakeML Magnitude"
   $ref: <identity>
   $ref: <quality>
   $ref: <provenance>
@@ -130,7 +145,7 @@
     type: float
 
 <foF2>:
-  description: "Ionogram-derived critical frequency of the F2 layer"
+  description: "Ionogram-derived ordinary-wave critical frequency of the highest F-region stratification; URSI foF2 (code 00)"
   $ref: <quality>
   $ref: <provenance>
   [value]:
@@ -142,7 +157,7 @@
     unit: MHz
 
 <hmF2>:
-  description: "Derived height of the F2-layer peak electron density"
+  description: "Derived height of the F2-layer peak electron density; retain the derivation method and distinguish it from virtual height h'F2"
   $ref: <quality>
   $ref: <provenance>
   [value]:
