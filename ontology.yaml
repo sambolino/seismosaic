@@ -12,13 +12,22 @@
 # UTC is the target time scale for these initial examples; source conversions
 # and reference information must be documented rather than assumed.
 #
-# The fragment represents a preferred catalogue origin and magnitude estimate.
-# Alternative estimates, revision structures and ionogram products remain open.
+# Catalogue entries can retain several origin and magnitude estimates, with
+# source-reported preference and estimate provenance. Revision history and
+# ionogram products remain open.
+
+<identifier>:
+  [source_id]:
+    description: "Identifier assigned by the stated source namespace"
+    type: string
+  [namespace]:
+    description: "Catalogue or identifier scheme in which source_id is interpreted; independent of delivery channel"
+    type: string
 
 <identity>:
-  [source_id]:
-    description: "Identifier of this record in its source catalogue or collection"
-    type: string
+  description: "Primary source identifier and any source-supported additional identifiers of the enclosing record"
+  $ref: <_identifier>
+  $refs: <identifier>
 
 <time>:
   [instant]:
@@ -77,11 +86,20 @@
   [reference]:
     description: "Scientific citation, source documentation or other attribution"
     type: string
+  [updated_at]:
+    description: "Source-reported update time of the enclosing record or estimate, expressed in UTC; not its physical event time or retrieval time"
+    type: string
 
 <origin>:
-  description: "Preferred origin estimate represented by this catalogue entry"
+  description: "One origin estimate represented by the enclosing catalogue entry"
+  $ref: <identity>
   $ref: <time>
   $ref: <position>
+  $ref: <quality>
+  $ref: <provenance>
+  [preferred]:
+    description: "Whether this is the enclosing catalogue entry's source-selected preferred origin; absent when preference is unknown"
+    type: boolean
   [depth]:
     description: "Reported hypocentral depth, positive downward; retain the source's reference"
     type: float
@@ -91,7 +109,16 @@
     type: string
 
 <magnitude>:
-  description: "Preferred magnitude estimate represented by this catalogue entry"
+  description: "One magnitude estimate represented by the enclosing catalogue entry"
+  $ref: <identity>
+  $ref: <quality>
+  $ref: <provenance>
+  [preferred]:
+    description: "Whether this is the enclosing catalogue entry's source-selected preferred magnitude; not a judgement of best physical accuracy"
+    type: boolean
+  [origin_id]:
+    description: "Source-reported identifier of the origin associated with this magnitude; interpreted in the source reference scheme"
+    type: string
   [value]:
     description: "Reported earthquake magnitude"
     type: float
@@ -127,12 +154,14 @@
     unit: km
 
 <event>:
-  description: "A source's seismic catalogue entry, carrying its preferred estimates"
+  description: "A source's seismic catalogue entry, retaining its origin and magnitude estimates and source preferences"
   $ref: <identity>
-  $ref: <origin>
-  $ref: <magnitude>
+  $refs: <origin>
+  $refs: <magnitude>
   $ref: <quality>
   $ref: <provenance>
+  $edges:
+    --same_event_as-- <event>@{producer}:{channel}
 
 <station>:
   description: "Observing station as described by its source"
@@ -165,7 +194,7 @@
     --selected_for_comparison_with--> <event>@{producer}:{channel}
 
 <geomagnetic_index>:
-  description: "Planetary geomagnetic activity index over its stated time interval"
+  description: "Planetary Kp or ap value over a three-hour UTC interval [time.start, time.end); time.instant does not represent its temporal support"
   $ref: <time>
   $ref: <quality>
   $ref: <provenance>
@@ -190,6 +219,10 @@
 --observed_at-->:
   $is: --edge--
   description: "The observation refers to the target observing station"
+
+--same_event_as--:
+  $is: --edge--
+  description: "An explicit assertion that two catalogue entries describe the same physical seismic event; requires identity evidence and assertion provenance"
 
 --selected_for_comparison_with-->:
   $is: --edge--
