@@ -1,0 +1,203 @@
+# ============================================================================
+# SEISMOSAIC DOMAIN ONTOLOGY — INITIAL DISCUSSION DRAFT
+# ============================================================================
+# Notation and composition rules: metamodel.md. See UPSTREAM.md for provenance.
+# This is ordered YAML-like notation, not ordinary YAML. Repeated $ref/$refs
+# directives and their scope must be preserved.
+#
+# This fragment defines domain structures, not a runtime implementation.
+# The study root and record families are provisional. No level profile is
+# assigned yet. References are permissive under the shared metamodel.
+# Source-specific field mappings are documented separately in docs/sources.md.
+# UTC is the target time scale for these initial examples; source conversions
+# and reference information must be documented rather than assumed.
+#
+# The fragment represents a preferred catalogue origin and magnitude estimate.
+# Alternative estimates, revision structures and ionogram products remain open.
+
+<identity>:
+  [source_id]:
+    description: "Identifier of this record in its source catalogue or collection"
+    type: string
+
+<time>:
+  [instant]:
+    description: "Instant expressed as an ISO 8601 UTC timestamp"
+    type: string
+  [start]:
+    description: "Inclusive start of a time interval, expressed in UTC"
+    type: string
+  [end]:
+    description: "Exclusive end of a time interval, expressed in UTC"
+    type: string
+
+<position>:
+  [latitude]:
+    description: "Reported geodetic latitude"
+    type: float
+    unit: deg
+  [longitude]:
+    description: "Reported geodetic longitude"
+    type: float
+    unit: deg
+  [datum]:
+    description: "Reported horizontal coordinate datum or reference, where known"
+    type: string
+
+<quality>:
+  [status]:
+    description: "Source-reported quality, publication or definitive/nowcast status"
+    type: string
+  [scaling]:
+    description: "Reported manual or automatic interpretation of an ionogram-derived characteristic"
+    type: string
+  [confidence_score]:
+    description: "Reported GIRO scaling confidence on the source's 0–100 scale"
+    type: float
+    range: [0, 100]
+  [flags]:
+    description: "Source-reported quality or interpretation flags"
+    type: string
+
+<provenance>:
+  <producer>:
+    [name]:
+      description: "Producer of the enclosing scientific record or assertion"
+      type: string
+    [version]:
+      description: "Reported catalogue, product or method version"
+      type: string
+  <channel>:
+    [name]:
+      description: "Service or route through which the enclosing record was obtained"
+      type: string
+    [uri]:
+      description: "Public service or source reference"
+      type: string
+  [reference]:
+    description: "Scientific citation, source documentation or other attribution"
+    type: string
+
+<origin>:
+  description: "Preferred origin estimate represented by this catalogue entry"
+  $ref: <time>
+  $ref: <position>
+  [depth]:
+    description: "Reported hypocentral depth, positive downward; retain the source's reference"
+    type: float
+    unit: km
+  [depth_reference]:
+    description: "Reported reference for depth, where supplied"
+    type: string
+
+<magnitude>:
+  description: "Preferred magnitude estimate represented by this catalogue entry"
+  [value]:
+    description: "Reported earthquake magnitude"
+    type: float
+  [scale]:
+    description: "Reported magnitude scale or type, such as Mw, ML or mb"
+    type: string
+  [uncertainty]:
+    description: "Reported uncertainty of the magnitude estimate"
+    type: float
+
+<foF2>:
+  description: "Ionogram-derived critical frequency of the F2 layer"
+  $ref: <quality>
+  $ref: <provenance>
+  [value]:
+    type: float
+    unit: MHz
+  [uncertainty]:
+    description: "Reported uncertainty, where supplied"
+    type: float
+    unit: MHz
+
+<hmF2>:
+  description: "Derived height of the F2-layer peak electron density"
+  $ref: <quality>
+  $ref: <provenance>
+  [value]:
+    type: float
+    unit: km
+  [uncertainty]:
+    description: "Reported uncertainty, where supplied"
+    type: float
+    unit: km
+
+<event>:
+  description: "A source's seismic catalogue entry, carrying its preferred estimates"
+  $ref: <identity>
+  $ref: <origin>
+  $ref: <magnitude>
+  $ref: <quality>
+  $ref: <provenance>
+
+<station>:
+  description: "Observing station as described by its source"
+  $ref: <identity>
+  $ref: <position>
+  $ref: <provenance>
+  [name]:
+    type: string
+  [elevation]:
+    description: "Reported station elevation"
+    type: float
+    unit: m
+  [elevation_reference]:
+    description: "Reported vertical reference, where supplied"
+    type: string
+
+<ionospheric_observation>:
+  description: "Ionogram-derived characteristics at a station and time"
+  $ref: <identity>
+  $ref: <time>
+  $ref: <foF2>
+  $ref: <hmF2>
+  $ref: <quality>
+  $ref: <provenance>
+  [station_id]:
+    description: "Station identifier reported by the characteristic's source"
+    type: string
+  $edges:
+    --observed_at--> <station>@{producer}:{channel}
+    --selected_for_comparison_with--> <event>@{producer}:{channel}
+
+<geomagnetic_index>:
+  description: "Planetary geomagnetic activity index over its stated time interval"
+  $ref: <time>
+  $ref: <quality>
+  $ref: <provenance>
+  [name]:
+    description: "Index name; lowercase ap is distinct from daily Ap"
+    type: string
+    enum: [Kp, ap]
+  [value]:
+    type: float
+  [unit]:
+    description: "Index unit interpretation: dimensionless Kp scale or equivalent range in 2 nT for ap"
+    type: string
+
+--edge--:
+  abstract: true
+  description: "Connection assertion between domain records"
+  [basis]:
+    description: "Criterion or evidence for asserting the connection"
+    type: string
+  $ref: <provenance>
+
+--observed_at-->:
+  $is: --edge--
+  description: "The observation refers to the target observing station"
+
+--selected_for_comparison_with-->:
+  $is: --edge--
+  description: "The observation is selected for comparison with the target event under explicit criteria; no causal or statistical finding is asserted"
+
+<study>:
+  description: "Provisional research-context collection; membership alone does not assert a scientific association"
+  $refs: <event>@{producer}:{channel}
+  $refs: <station>@{producer}:{channel}
+  $refs: <ionospheric_observation>@{producer}:{channel}
+  $refs: <geomagnetic_index>@{producer}:{channel}
