@@ -1,6 +1,6 @@
 # Source review and illustrative mappings
 
-First review: 2026-10-12. This is a source-access and modelling note, not an adapter implementation. Public documentation and small anonymous HTTP responses were inspected. A successful sample request does not establish completeness, continuous availability or a validated ingestion workflow.
+First review: 2026-10-12; identity/estimate and interval follow-up on the same date. This is a source-access and modelling note, not an adapter implementation. Public documentation and small anonymous HTTP responses were inspected. A successful sample request does not establish completeness, continuous availability or a validated ingestion workflow.
 
 ## Current assessment
 
@@ -37,7 +37,7 @@ GeoJSON returns a FeatureCollection. These paths are relative to an `event`:
 
 | Provider field | Proposed semantic path or retention rule |
 | --- | --- |
-| `features[].id` | `identity.source_id` |
+| `features[].id` | `identity.source_id`, with mapping namespace `usgs:event` |
 | `properties.time` | `origin.time.instant`; convert epoch milliseconds to UTC |
 | `geometry.coordinates[0]` | `origin.position.longitude`, degrees |
 | `geometry.coordinates[1]` | `origin.position.latitude`, degrees |
@@ -45,10 +45,10 @@ GeoJSON returns a FeatureCollection. These paths are relative to an `event`:
 | `properties.mag` | `magnitude.value` |
 | `properties.magType` | `magnitude.scale`; preserve source spelling |
 | `properties.status` | `quality.status` |
-| `properties.net`, `sources`, `ids` | Retain contributor and alternate-identifier evidence; fuller mapping pending |
-| `properties.updated` | Retain update time; the draft does not yet define a revision timestamp field |
+| `properties.net`, `sources`, `ids` | Retain contributor and alternate-identifier evidence; mapping individual identifier namespaces remains pending |
+| `properties.updated` | `provenance.updated_at`; convert epoch milliseconds to UTC |
 
-Absent values remain absent or unavailable, not zero. A summary contains preferred estimates; retaining all alternative origins or magnitudes needs a richer representation.
+Absent values remain absent or unavailable, not zero. A summary contains source-selected preferred estimates; `origin.preferred` and `magnitude.preferred` record that selection. It does not establish the number of estimates in a full bulletin.
 
 ## EMSC earthquake event service
 
@@ -66,14 +66,14 @@ The inspected JSON contains a FeatureCollection with lower-case property names. 
 
 | Observed provider field | Proposed semantic path or retention rule |
 | --- | --- |
-| `features[].id`, `properties.unid` | `identity.source_id`; retain the service identifier |
-| `properties.source_id` | Retain the distinct EMSC website identifier; do not replace the service identifier silently |
+| `features[].id`, `properties.unid` | `identity.source_id`, with mapping namespace `emsc:unid` |
+| `properties.source_id` | Additional `identity.identifier.source_id`, with namespace `emsc:evid`; keep the website identifier distinct |
 | `properties.time` | `origin.time.instant`; UTC timestamp string |
 | `properties.lat`, `properties.lon` | `origin.position.latitude`, `origin.position.longitude` |
 | `properties.depth` | `origin.depth`, km |
 | `properties.mag`, `properties.magtype` | `magnitude.value`, `magnitude.scale` |
 | `properties.auth`, `source_catalog` | Retain authorship/catalogue provenance |
-| `properties.lastupdate` | Retain update time; revision mapping pending |
+| `properties.lastupdate` | `provenance.updated_at`; retain as a UTC timestamp |
 | `properties.evtype` | Retain the source's event-type code until its controlled-value mapping is reviewed |
 
 **Depth check:** the sample reported `properties.depth=130.1` but `geometry.coordinates[2]=-130.1`. Use the explicit depth property; do not reuse the USGS third-coordinate mapping blindly.
@@ -90,6 +90,26 @@ The explicit one-day queries produced two candidate corresponding entries near V
 | EMSC | `20260101_0000344` | 2026-01-01T21:35:01.65Z | 130.1 | 5.2 / mb |
 
 Similar time/location/magnitude makes this a useful candidate for reviewing identity and estimate representation. It is not an implemented cross-match or an independently confirmed identity link. Separate reports and estimates must survive any later association.
+
+### QuakeML estimate follow-up
+
+The USGS documentation supports `includeallorigins=true` and `includeallmagnitudes=true`; selecting `eventid` also implies these inclusions. EMSC documents `includeallorigins=true`. Inspect XML/QuakeML for detailed estimates instead of assuming the summary JSON contains them.
+
+The bounded requests below both returned HTTP 200. For this entry, USGS returned one origin and magnitude; EMSC returned ten of each. Counts describe these responses only. Both returned preferred origin/magnitude IDs and magnitude `originID` references.
+
+| QuakeML information | Draft mapping |
+| --- | --- |
+| Origin/magnitude `publicID` | Estimate's `identity.source_id`, namespace `quakeml:publicID`; preserve the complete string |
+| Event `preferredOriginID` / `preferredMagnitudeID` | Compare with returned estimate IDs to establish `preferred`; do not select by array order |
+| Origin time/latitude/longitude | `origin.time.instant`, `origin.position.latitude`, `origin.position.longitude` |
+| Origin depth | `origin.depth`; these XML responses use metres, so divide by 1,000 for the model's km |
+| Magnitude value/type | `magnitude.value`, `magnitude.scale`; preserve unfamiliar source types such as `m` |
+| Magnitude `originID` | `magnitude.origin_id`; preserve the actual source association |
+| Supplied agency/author and estimate status | Estimate-scoped provenance and quality; do not infer authorship from delivery |
+
+For example, the EMSC preferred origin ending in `/IMBNVGIUR` reports 130.1 km depth and has a 5.2 mb magnitude. An additional origin ending in `/IMAZVGAVX` reports 120 km and has a 5.1 mb magnitude referring to that origin. This demonstrates alternative estimates within one entry, independently of cross-catalogue identity review. See [model decisions](model_decisions.md) for semantic paths and the separate identity-edge meaning.
+
+The identifier namespace labels in these mappings are local descriptive conventions. They are not claimed to be provider-defined standards. Parsing the USGS `ids` string into fully scoped additional identifiers remains open; its `sources` list should not be paired with it by assumed array order.
 
 ## GFZ Kp and ap
 
@@ -112,6 +132,8 @@ The archive is documented since 1932. Both Kp and lowercase ap describe three-ho
 | Index definition | `unit` | Kp is dimensionless; ap equivalent range is in units of 2 nT |
 
 Parallel arrays must be aligned by index and checked for equal lengths. A request ending at 06:00 returned starts at 00:00, 03:00 and 06:00; the last record describes 06:00–09:00. Selection boundaries are not the same as the support of every returned interval.
+
+The follow-up queried both Kp and ap for 2026-01-01T21:00:00Z through 2026-01-02T00:00:00Z. Each returned two starts, 21:00 and 00:00, with `def` status. Kp was 2.667 and ap was 12 for both starts. The 21:00–00:00 interval contains the two reported earthquake times; the following interval does not. The derived ends use the domain's half-open interval convention. This is a concrete temporal-context example, not an asserted scientific association.
 
 ## GIRO/DIDBase
 
@@ -198,6 +220,26 @@ curl --fail 'https://services.swpc.noaa.gov/json/goes/primary/xrays-6-hour.json'
 
 AU930 comes from the official service example; it is not a selected study station.
 
+Follow-up requests used for estimate and interval review:
+
+```bash
+curl --fail --get 'https://earthquake.usgs.gov/fdsnws/event/1/query' \
+  --data-urlencode 'eventid=us7000rlzn' --data-urlencode 'format=xml' \
+  --data-urlencode 'includeallorigins=true' \
+  --data-urlencode 'includeallmagnitudes=true'
+
+curl --fail --get 'https://www.seismicportal.eu/fdsnws/event/1/query' \
+  --data-urlencode 'eventid=20260101_0000344' \
+  --data-urlencode 'format=xml' --data-urlencode 'includeallorigins=true'
+
+for index in Kp ap; do
+  curl --fail --get 'https://kp.gfz.de/app/json/' \
+    --data-urlencode 'start=2026-01-01T21:00:00Z' \
+    --data-urlencode 'end=2026-01-02T00:00:00Z' \
+    --data-urlencode "index=$index" --data-urlencode 'status=def'
+done
+```
+
 ## Next model discussion
 
-Start with the earthquake entries and the interval index example. Before extending declarations, agree how to retain multiple source identifiers, alternative origin/magnitude estimates and update times. For the ionospheric part, select one station and characteristic with verified coverage/access. The study region and scientific comparison windows are still open.
+The first estimate/identity iteration is recorded in the ontology and model decisions. Next, review the scientific criteria for cross-catalogue identity and the required uncertainty/provenance detail. For the ionospheric part, select one station and characteristic with verified coverage/access. The study region and scientific comparison windows are still open.
