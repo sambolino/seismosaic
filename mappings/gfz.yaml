@@ -1,0 +1,32 @@
+id: gfz.indices.json
+endpoint: gfz.indices
+status: sample_reviewed
+record: geomagnetic_series
+qualifiers: {producer: gfz-kp, channel: gfz-kp-json}
+fields:
+  - {literal: gfz-kp, target: provenance.producer.name}
+  - {literal: gfz-kp-json, target: provenance.channel.name}
+  - {literal: 'https://kp.gfz.de/app/json/', target: provenance.channel.uri}
+  - {literal: 'https://doi.org/10.5880/Kp.0001', target: provenance.reference}
+  - {literal: 10800, target: cadence, unit: s, basis: Documented three-hour index grid; not a guarantee of gap-free output}
+containers:
+  - target: points
+    selection: Align datetime and the selected index array by index i; align status too when supplied.
+    fields:
+      - {source: 'datetime[i]', target: time.start, conversion: Parse UTC timestamp}
+      - {source: 'datetime[i]', target: time.end, conversion: Add 10800 seconds in UTC}
+      - {source: 'status[i]', target: quality.status}
+    quantity_bindings:
+      - {request_index: Kp, source: 'Kp[i]', target: Kp.value, unit: dimensionless}
+      - {request_index: ap, source: 'ap[i]', target: ap.value, unit: '2 nT'}
+rules:
+  - Reject array alignment when datetime and the selected value array have different lengths; if status exists, its length must also agree.
+  - Bind only the requested reviewed quantity; do not use arbitrary response keys as ontology container names.
+  - Preserve the complete three-hour half-open support interval, including a returned start equal to query end.
+  - Do not fill missing samples, turn a missing/sentinel value into zero, or infer absent status as def.
+  - Missing-value sentinels require the provider's definition before any numeric value can be emitted.
+  - Kp and ap are related scales; separate requests do not establish independent observations.
+  - Series extent can be derived from actual represented interval bounds, never copied from query boundaries.
+retain_unmapped:
+  - meta.source and meta.license as source attribution; the inspected payload uses meta while format documentation calls it metadata.
+  - Unknown status tokens and any additional metadata for review, without a universal quality ranking.

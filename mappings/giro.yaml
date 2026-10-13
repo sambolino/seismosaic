@@ -1,0 +1,28 @@
+id: giro.characteristics.pending
+endpoint: giro.characteristics.latest
+status: response_layout_pending
+record: ionospheric_series
+qualifiers: {producer: null, channel: giro-fastchar}
+unbound_targets:
+  - {target: provenance.acquisition.station.identity.source_id, meaning: Reported URSI station identifier; namespace must be documented}
+  - {target: points.time.instant, meaning: Reported characteristic timestamp in UTC}
+  - {target: points.foF2.value, unit: MHz, meaning: Ordinary-wave F-region critical frequency; URSI code 00}
+  - {target: points.hmF2.value, unit: km, meaning: Derived F2 peak-density height; not virtual height h'F2}
+  - {target: points.foF2.quality.confidence_code, meaning: Raw confidence token at its supplied scope}
+  - {target: points.hmF2.quality.confidence_code, meaning: Raw confidence token at its supplied scope}
+  - {target: points.foF2.quality.qualifying_letter, meaning: Supplied URSI qualifying letter}
+  - {target: points.foF2.quality.descriptive_letter, meaning: Supplied URSI descriptive letter}
+documented_interpretations:
+  - token: '999'
+    basis: https://esc.pithia.eu/data-collections/DataCollection_DIDBase_VerifiedCleanScaling/
+    interpretation: FastChar verified-clean manual scaling; retain raw token, omit numeric confidence_score.
+  - token: Ordinary scores in the documented 0–100 range
+    interpretation: Preserve raw token and populate confidence_score only when the route and scope are confirmed; no inference of scaling mode.
+blockers:
+  - Inspect a bounded successful response before defining column names, indexes, missing tokens or quality scope.
+  - Confirm station identity, scaling producer and time semantics; request parameters alone do not prove returned metadata.
+  - Validate route-specific confidence/letter conventions before applying these documented interpretations.
+rules:
+  - This is a target checklist, not a bound field mapping.
+  - Apply quality rules to each characteristic or shared acquisition only where the payload establishes that scope.
+  - Do not generalize FastChar token rules to SAO or SAOXML exports without checking their own format definitions.

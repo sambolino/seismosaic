@@ -1,0 +1,44 @@
+id: usgs.geojson
+endpoint: usgs.events
+status: sample_reviewed
+record: seismic_event
+selection:
+  collection: $.features[*]
+  single_event: $
+  condition: Use collection for FeatureCollection and single_event for Feature; check the response type first.
+qualifiers: {producer: usgs, channel: usgs-fdsn}
+fields:
+  - {source: id, target: identity.source_id}
+  - {literal: 'usgs:event', target: identity.namespace}
+  - {source: properties.status, target: quality.status}
+  - {source: properties.updated, target: provenance.updated_at, conversion: Unix milliseconds to ISO 8601 UTC}
+  - {literal: usgs, target: provenance.producer.name}
+  - {literal: usgs-fdsn, target: provenance.channel.name}
+  - {literal: 'https://earthquake.usgs.gov/fdsnws/event/1/query', target: provenance.channel.uri}
+containers:
+  - target: origin
+    multiplicity: One summary origin when its reported fields are present; no full-bulletin completeness claim.
+    fields:
+      - {source: properties.time, target: time.instant, conversion: Unix milliseconds to ISO 8601 UTC}
+      - {source: 'geometry.coordinates[0]', target: position.longitude, unit: deg}
+      - {source: 'geometry.coordinates[1]', target: position.latitude, unit: deg}
+      - {source: 'geometry.coordinates[2]', target: depth, unit: km}
+      - {literal: true, target: preferred}
+    rules:
+      - Depth is positive downward; no depth reference or horizontal datum is invented.
+      - properties.net is a contributor code; do not automatically assign catalogue producer usgs to this estimate.
+  - target: magnitude
+    multiplicity: One summary magnitude only when properties.mag is non-null.
+    fields:
+      - {source: properties.mag, target: value}
+      - {source: properties.magType, target: scale}
+      - {literal: true, target: preferred}
+    rules:
+      - No estimate identifier, origin_id or uncertainty is manufactured from this summary.
+retain_unmapped:
+  - properties.net, properties.sources and properties.ids for contributor/identifier review; never zip sources with ids by guessed order.
+  - Provider fields outside this projection stay in the original response if a later workflow retains it.
+rules:
+  - Summary preference is source selection, not an accuracy judgement.
+  - JSON is a provider summary representation, not a QuakeML document.
+  - Do not emit identity/correlation edges from this mapping.
