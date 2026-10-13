@@ -11,11 +11,12 @@ Established domain concepts guide the model: a small QuakeML projection for seis
 - [ontology.yaml](ontology.yaml): a small draft domain model for discussion.
 - [metamodel.md](metamodel.md): the reused notation and composition specification.
 - [Source notes](docs/sources.md): candidate interfaces and illustrative field mappings.
+- [Endpoints and mappings](docs/interfaces.md): declarative access profiles and source-to-output paths, with unresolved bindings labelled.
 - [Standards alignment](docs/standards.md): reused concepts, format boundaries and projection limits.
 - [Modelling decisions](docs/model_decisions.md): the initial choices and questions still open.
 - [Upstream provenance](UPSTREAM.md): the exact Alertissimo source of the metamodel.
 
-This repository starts with model declarations and documentation. The ontology is ordered YAML-like notation with meaningful repeated directives. It is not an ordinary YAML configuration file.
+This repository starts with model declarations, endpoint/mapping descriptions and documentation. The ontology is ordered YAML-like notation with meaningful repeated directives. It is not an ordinary YAML configuration file. The separate `endpoints/` and `mappings/` files use ordinary YAML; they describe reviewed interfaces without implementing an adapter or mapping interpreter.
 
 ## Initial scope
 

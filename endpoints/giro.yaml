@@ -1,0 +1,35 @@
+source: giro-didbase
+channel: giro-fastchar
+producer: null
+producer_note: Station/scaling-product authorship needs a working response; the serving archive alone is insufficient.
+documentation: https://giro.uml.edu/rix/test.html
+access: Documented anonymous example; numeric payload not yet inspected successfully.
+coverage: Station- and characteristic-dependent; nominal collection cadence does not establish complete coverage.
+endpoints:
+  - id: giro.characteristics.latest
+    status: documented_access_unresolved
+    url: https://lgdc.uml.edu/fastchar/getbest
+    method: GET
+    parameters:
+      ursiCode: {type: string, required: true, meaning: Station URSI code}
+      charName: {type: string, required: true, meaning: Comma-separated source characteristic names, examples: ['foF2,hmF2']}
+    responses:
+      - {representation: Tabulated characteristics; exact layout unverified, mapping: giro.characteristics.pending}
+    examples:
+      - {ursiCode: AU930, charName: 'foF2,hmF2'}
+    constraints:
+      - Official example describes the latest 24 hours; no historical query parameters are confirmed here.
+      - Do not infer FastChar parameters from the web form's date_start/date_end fields.
+      - AU930 is the provider's example, not a selected study station.
+  - id: giro.stations
+    status: documented_access_unresolved
+    url: https://lgdc.uml.edu/ionoweb/locations
+    method: GET
+    purpose: Station/availability discovery; response layout and coverage still require inspection.
+access_constraints:
+  - Earlier anonymous requests returned HTTP 504 here; this does not establish permanent service failure.
+  - Raw ionograms and scaled characteristics are separate products; no reproducible raw-ionogram route is selected.
+  - No credentials or account-specific example parameters are stored in this repository.
+attribution:
+  licence: Provider publishes CC BY-NC-SA 4.0 restrictions; verify conditions for the selected route.
+  terms: https://giro.uml.edu/didbase/RulesOfTheRoad.html

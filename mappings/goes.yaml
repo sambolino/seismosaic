@@ -1,0 +1,59 @@
+profiles:
+  - id: goes.xrs.recent.json
+    endpoint: goes.xrs.recent
+    status: fields_reviewed_producer_pending
+    record: solar_irradiance_series
+    selection: $[*]
+    qualifiers: {producer: null, channel: swpc-json}
+    grouping:
+      series: One series per reported satellite and band within this endpoint/product context.
+      points: One point per source row; preserve duplicate labels for review rather than silently overwrite them.
+      reason: Avoid an implicit cross-row merge; a later workflow may combine bands only when platform/product/time context agrees.
+    fields:
+      - {literal: swpc-json, target: provenance.channel.name}
+      - {literal: 'https://services.swpc.noaa.gov/json/goes/primary/xrays-6-hour.json', target: provenance.channel.uri}
+      - {literal: XRS, target: provenance.acquisition.instrument.name, basis: Product documentation}
+      - {literal: operational, target: provenance.product.edition}
+      - {literal: 60, target: cadence, unit: s, basis: Documented nominal one-minute sampling}
+    containers:
+      - target: points
+        fields:
+          - {source: time_tag, target: time.label, conversion: Parse source UTC timestamp; no assumed start/end convention}
+          - {literal: 60, target: time.duration, unit: s, basis: Documented one-minute averaging support}
+          - {source: satellite, target: provenance.acquisition.platform.name, conversion: Prefix reported satellite number with GOES-}
+        band_bindings:
+          - {source_energy: 0.05-0.4nm, band: xrs_a, lower: 0.05, upper: 0.4, unit: nm}
+          - {source_energy: 0.1-0.8nm, band: xrs_b, lower: 0.1, upper: 0.8, unit: nm}
+        band_fields:
+          - {source: energy, target: 'irradiance.{band}.wavelength_band.name'}
+          - {binding: lower, target: 'irradiance.{band}.wavelength_band.lower', unit: nm}
+          - {binding: upper, target: 'irradiance.{band}.wavelength_band.upper', unit: nm}
+          - {source: flux, target: 'irradiance.{band}.value', unit: 'W m-2'}
+          - {source: observed_flux, target: 'irradiance.{band}.observed_value', unit: 'W m-2'}
+          - {source: electron_correction, target: 'irradiance.{band}.electron_correction', unit: 'W m-2'}
+          - {literal: mean, target: 'irradiance.{band}.statistic', basis: Product definition; no aggregation performed here}
+          - {source: electron_contaminaton, target: 'irradiance.{band}.quality.flags', conversion: Preserve exact source spelling and value as electron_contaminaton=<reported value>}
+    rules:
+      - Unknown energy labels require review; never guess a band or its bounds.
+      - Preserve null/missing values and quality flags; absence is not zero or false.
+      - No provider row ID is supplied; do not manufacture identity.source_id from a timestamp.
+      - Time labels and averaging duration do not establish exact interval boundaries.
+      - Producer attribution must be resolved before fully qualified semantic output is claimed.
+  - id: goes.xrs.science.pending
+    endpoint: goes.xrs.science-archive
+    status: netcdf_metadata_pending
+    record: solar_irradiance_series
+    qualifiers: {producer: noaa-ncei, channel: ncei-exis}
+    unbound_targets:
+      - {target: provenance.product.version, meaning: Actual file/product version}
+      - {target: provenance.product.edition, intended_value: science_quality}
+      - {target: provenance.acquisition.platform.name, meaning: Actual satellite}
+      - {target: provenance.acquisition.instrument.name, intended_value: XRS}
+      - {target: points.time.label, meaning: Decode using actual NetCDF time units and calendar}
+      - {target: 'points.irradiance.{band}.value', unit: 'W m-2', meaning: Reported band irradiance}
+    blockers:
+      - Inspect the representative NetCDF header and values before binding variable names, missing values, flags, time scale or support bounds.
+      - Define programmatic file discovery/version selection separately; the listed example is not an archive API contract.
+    rules:
+      - Science-quality reprocessing and the operational feed can share underlying measurements; channels do not establish independence.
+      - No historical variable layout or CF conformance is asserted here.

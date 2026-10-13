@@ -1,0 +1,46 @@
+id: emsc.json
+endpoint: emsc.events
+status: sample_reviewed
+record: seismic_event
+selection:
+  collection: $.features[*]
+  single_event: $
+  condition: Use collection for FeatureCollection and single_event for Feature; check the response type first.
+qualifiers: {producer: emsc, channel: emsc-fdsn}
+fields:
+  - {source: id, target: identity.source_id}
+  - {literal: 'emsc:unid', target: identity.namespace}
+  - {source: properties.lastupdate, target: provenance.updated_at, conversion: Parse source UTC timestamp; preserve precision}
+  - {literal: emsc, target: provenance.producer.name}
+  - {literal: emsc-fdsn, target: provenance.channel.name}
+  - {literal: 'https://www.seismicportal.eu/fdsnws/event/1/query', target: provenance.channel.uri}
+containers:
+  - target: identity.identifier
+    multiplicity: One additional identifier when properties.source_id is supplied.
+    fields:
+      - {source: properties.source_id, target: source_id, conversion: Preserve as an identifier string}
+      - {literal: 'emsc:evid', target: namespace}
+  - target: origin
+    multiplicity: One source-preferred summary origin when reported.
+    fields:
+      - {source: properties.time, target: time.instant, conversion: Parse source UTC timestamp; preserve precision}
+      - {source: properties.lat, target: position.latitude, unit: deg}
+      - {source: properties.lon, target: position.longitude, unit: deg}
+      - {source: properties.depth, target: depth, unit: km}
+      - {literal: true, target: preferred}
+    rules:
+      - Use the positive-down depth property; the inspected geometry coordinate had the opposite sign.
+      - Do not assume properties.auth identifies every estimate's scientific author.
+  - target: magnitude
+    multiplicity: One summary magnitude only when properties.mag is non-null.
+    fields:
+      - {source: properties.mag, target: value}
+      - {source: properties.magtype, target: scale}
+      - {literal: true, target: preferred}
+rules:
+  - If properties.unid is present, check it agrees with id; disagreement requires review rather than silent replacement.
+  - Field spelling follows inspected lower-case JSON keys.
+  - Do not emit same_event_as merely because a USGS record has similar time/location/magnitude.
+retain_unmapped:
+  - properties.auth and properties.source_catalog as reported authorship/catalogue context; their precise provenance scope remains open.
+  - properties.evtype remains a source code; no unreviewed event-type translation.

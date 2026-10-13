@@ -1,0 +1,57 @@
+source: emsc
+channel: emsc-fdsn
+producer: emsc
+documentation: https://www.seismicportal.eu/fdsn-wsevent.html
+protocol: FDSN event web service, version 1 family
+access: anonymous HTTPS GET
+coverage: Catalogue-specific; EMSC-RTS is the near-real-time aggregate, EMSC-EMB the older regional bulletin.
+endpoints:
+  - id: emsc.events
+    url: https://www.seismicportal.eu/fdsnws/event/1/query
+    method: GET
+    parameters:
+      format: {type: string, reviewed_values: [json, xml]}
+      starttime: {type: string, meaning: Inclusive origin-time lower bound; explicit ISO 8601 UTC}
+      endtime: {type: string, meaning: Inclusive origin-time upper bound; avoid date-only values and check returned times}
+      updatedafter: {type: string, meaning: Update-time filter; distinct from origin time}
+      eventid: {type: string, meaning: SeismicPortal event identifier; distinct from evid}
+      evid: {type: string, meaning: EMSC website identifier; distinct from eventid}
+      minmagnitude: {type: number}
+      maxmagnitude: {type: number}
+      mindepth: {type: number, unit: km}
+      maxdepth: {type: number, unit: km}
+      minlatitude: {type: number, unit: deg}
+      maxlatitude: {type: number, unit: deg}
+      minlongitude: {type: number, unit: deg}
+      maxlongitude: {type: number, unit: deg}
+      latitude: {type: number, unit: deg}
+      longitude: {type: number, unit: deg}
+      maxradius: {type: number, unit: deg}
+      catalog: {type: string, examples: [EMSC-RTS, EMSC-EMB]}
+      contributor: {type: string}
+      includeallorigins: {type: boolean, reviewed_format: xml}
+      limit: {type: integer, minimum: 1, maximum: 20000}
+      offset: {type: integer, minimum: 1}
+      orderby: {type: string, reviewed_values: [time, time-asc, magnitude, magnitude-asc]}
+    constraints:
+      - Radial queries use degrees; do not copy USGS maxradiuskm into this profile.
+      - The two lookup identifier schemes must remain distinct.
+      - Check catalogue coverage and returned times; query boundaries are not observation support.
+      - Do not assume a stable snapshot across paginated requests to a changing catalogue.
+    responses:
+      - {format: json, representation: Provider GeoJSON summary; FeatureCollection or single Feature, mapping: emsc.json}
+      - {format: xml, representation: QuakeML BED 1.2 projection, mapping: earthquake.quakeml}
+    examples:
+      - {format: json, starttime: '2026-01-01T00:00:00Z', endtime: '2026-01-02T00:00:00Z', minmagnitude: 5, limit: 1}
+      - {format: xml, eventid: '20260101_0000344', includeallorigins: true}
+  - id: emsc.count
+    url: https://www.seismicportal.eu/fdsnws/event/1/count
+    method: GET
+    purpose: Count matches before retrieval; not a semantic scientific record.
+    parameter_basis: Consult provider documentation for the supported count filters and formats.
+access_constraints:
+  - Service documents a 20000-event response limit; coverage is not uniform across catalogues.
+  - Default XML and pipe-separated text are different from the JSON profile selected here.
+attribution:
+  licence: CC BY 4.0
+  terms: https://www.seismicportal.eu/terms.html

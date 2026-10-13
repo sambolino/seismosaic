@@ -2,6 +2,8 @@
 
 First review: 2026-10-12; identity/estimate and interval follow-up on the same date; output-form mappings revised 2026-10-13. This is a source-access and modelling note, not an adapter implementation. Public documentation and small anonymous HTTP responses were inspected. A successful sample request does not establish completeness, continuous availability or a validated ingestion workflow.
 
+The reviewed access and field choices now have [declarative endpoint and mapping files](interfaces.md). This note retains the scientific interpretation and access evidence; those files separate provider query controls from semantic output paths.
+
 ## Current assessment
 
 | Source | Representative response | Query/format basis | Coverage and present decision |
@@ -65,6 +67,8 @@ Choose `format=json` for the first comparison. QuakeML/XML and text are also doc
 Coverage is catalogue-specific: EMSC-RTS is the near-realtime aggregate; EMSC-EMB is the older European-Mediterranean bulletin. The current API notes RTS use since 2012. Historical bounds and completeness must be checked for the selected catalogue and study interval. Dataset attribution is specified under CC BY 4.0 in the [service terms](https://www.seismicportal.eu/terms.html).
 
 The inspected JSON contains a FeatureCollection with lower-case property names. Documentation examples do not all use identical field spelling; mappings below follow the observed response.
+
+The 2026-10-13 endpoint follow-up confirmed that both USGS and EMSC return a single `Feature` for the reviewed `eventid` lookups. The mappings distinguish that shape from a query's `FeatureCollection`; they do not assume `features[]` is always present.
 
 | Observed provider field | Proposed semantic path or retention rule |
 | --- | --- |
