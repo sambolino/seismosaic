@@ -1,0 +1,41 @@
+source: goes-xrs
+documentation: https://www.spaceweather.gov/products/goes-x-ray-flux
+coverage: Recent operational feed and historical science-quality archive are distinct access/product profiles.
+endpoints:
+  - id: goes.xrs.recent
+    status: response_reviewed
+    url: https://services.swpc.noaa.gov/json/goes/primary/xrays-6-hour.json
+    method: GET
+    access: anonymous
+    channel: swpc-json
+    producer: null
+    producer_note: Operational product authorship still needs evidence; delivery through SWPC does not settle it.
+    parameters: {}
+    responses:
+      - {representation: JSON array of one-minute band averages, mapping: goes.xrs.recent.json}
+    constraints:
+      - Fixed rolling six-hour feed; no arbitrary start/end query is supported by this profile.
+      - Actual satellite comes from each row, not the primary URL component.
+      - A directory listing error does not imply this individual feed is inaccessible.
+  - id: goes.xrs.science-archive
+    status: response_reviewed
+    url: https://data.ngdc.noaa.gov/platforms/solar-space-observing-satellites/goes/goes18/l2/data/xrsf-l2-avg1m_science/2025/07/
+    method: GET
+    access: anonymous archive listing/file access; not a time-filtered REST endpoint
+    channel: ncei-exis
+    producer: noaa-ncei
+    parameters: {}
+    responses:
+      - {representation: NetCDF science-quality avg1m files, mapping: goes.xrs.science.netcdf}
+    representative_file: https://data.ngdc.noaa.gov/platforms/solar-space-observing-satellites/goes/goes18/l2/data/xrsf-l2-avg1m_science/2025/07/sci_xrsf-l2-avg1m_g18_d20250729_v2-2-1.nc
+    constraints:
+      - The representative daily file's variables, time attributes and quality flags have now been inspected.
+      - This URL is a representative directory, not a complete file-discovery contract.
+      - A future workflow can retrieve files through a library; no manual-download step is proposed.
+      - Read the actual file/product version; do not infer it from newer documentation.
+      - The fixed demo selects GOES-18 v2-2-1 daily products; unavailable files are failures, without fallback to another edition/version.
+    documentation: https://www.ncei.noaa.gov/products/goes-r-extreme-ultraviolet-xray-irradiance
+access_constraints:
+  - Preserve product edition, satellite, instrument, gaps and calibration context.
+  - Operational and science-quality editions are related measurements, not automatically independent evidence.
+attribution: Preserve NOAA/NCEI product citation and acknowledgement guidance for the selected edition.

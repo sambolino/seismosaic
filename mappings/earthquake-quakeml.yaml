@@ -1,0 +1,64 @@
+id: earthquake.quakeml
+endpoints: [usgs.events, emsc.events, geofon.events]
+status: sample_reviewed
+record: seismic_event
+representation: QuakeML BED 1.2; a small projection, not a complete schema or conformance validator.
+namespaces:
+  q: http://quakeml.org/xmlns/quakeml/1.2
+  b: http://quakeml.org/xmlns/bed/1.2
+selection: /q:quakeml/b:eventParameters/b:event
+qualifiers: Catalogue producer and delivery channel come from the selected endpoint descriptor.
+fields:
+  - {source: '@publicID', target: identity.source_id}
+  - {literal: 'quakeml:publicID', target: identity.namespace}
+  - {context: endpoint.producer, target: provenance.producer.name}
+  - {context: endpoint.channel, target: provenance.channel.name}
+  - {context: endpoint.url, target: provenance.channel.uri}
+containers:
+  - target: origin
+    selection: b:origin
+    multiplicity: Keep every returned origin as a separate container.
+    fields:
+      - {source: '@publicID', target: identity.source_id}
+      - {literal: 'quakeml:publicID', target: identity.namespace}
+      - {source: b:time/b:value, target: time.instant, conversion: Parse source UTC timestamp; preserve precision}
+      - {source: b:latitude/b:value, target: position.latitude, unit: deg}
+      - {source: b:longitude/b:value, target: position.longitude, unit: deg}
+      - {source: b:depth/b:value, target: depth, source_unit: m, unit: km, conversion: Divide by 1000}
+      - {source: b:evaluationMode, target: quality.evaluation_mode}
+      - {source: b:evaluationStatus, target: quality.status}
+    preference:
+      source: ../b:preferredOriginID
+      target: preferred
+      rule: Compare the complete reference string with this origin's publicID; omit if no preference is supplied.
+    producer:
+      sources: [b:creationInfo/b:agencyID, b:creationInfo/b:author]
+      target: provenance.producer.name
+      rule: Preserve supplied agency and author as labelled source strings; omit absent parts; infer neither from ID suffixes nor channel.
+  - target: magnitude
+    selection: b:magnitude
+    multiplicity: Keep every returned magnitude as a separate container, with its actual origin association.
+    fields:
+      - {source: '@publicID', target: identity.source_id}
+      - {literal: 'quakeml:publicID', target: identity.namespace}
+      - {source: b:mag/b:value, target: value}
+      - {source: b:mag/b:uncertainty, target: uncertainty}
+      - {source: b:type, target: scale}
+      - {source: b:originID, target: origin_id}
+    preference:
+      source: ../b:preferredMagnitudeID
+      target: preferred
+      rule: Compare the complete reference string with this magnitude's publicID; omit if no preference is supplied.
+    producer:
+      sources: [b:creationInfo/b:agencyID, b:creationInfo/b:author]
+      target: provenance.producer.name
+      rule: Preserve supplied agency and author as labelled source strings; do not replace missing authorship with the catalogue producer.
+rules:
+  - Lookup eventid and QuakeML publicID are different schemes; do not derive one by splitting the other.
+  - Unresolved preference/origin references require review; never choose the first estimate as a fallback.
+  - Unknown magnitude types remain source strings; do not convert or equate scales.
+  - Creation time is not automatically record update time.
+  - Catalogue-level producer/channel bindings do not automatically propagate scientific authorship to nested estimates.
+retain_unmapped:
+  - CreationInfo parts not projected, arrivals, picks, focal mechanisms, depth references and additional uncertainty conventions.
+  - Provider-specific identifiers/extensions until their namespaces and semantics have been reviewed.

@@ -1,0 +1,30 @@
+source: geofon
+producer: geofon
+channel: geofon-fdsn
+documentation: https://geofon.gfz.de/waveform/webservices/fdsnws.php
+access: anonymous HTTPS GET
+coverage: GEOFON seismic catalogue; separate scientific product from GFZ Kp/ap.
+endpoints:
+  - id: geofon.events
+    url: https://geofon.gfz.de/fdsnws/event/1/query
+    method: GET
+    parameters:
+      format: {type: string, reviewed_values: [xml]}
+      starttime: {type: string, meaning: UTC lower event-time bound}
+      endtime: {type: string, meaning: UTC upper event-time bound; check exact returned times}
+      latitude: {type: number, unit: deg}
+      longitude: {type: number, unit: deg}
+      maxradius: {type: number, unit: deg}
+      minmagnitude: {type: number}
+      eventid: {type: string}
+      includeallorigins: {type: boolean}
+      includeallmagnitudes: {type: boolean}
+    responses:
+      - {format: xml, representation: QuakeML BED 1.2 projection, mapping: earthquake.quakeml}
+    examples:
+      - {format: xml, eventid: gfz2025otqm, includeallorigins: true, includeallmagnitudes: true}
+access_constraints:
+  - Bound query size and issue requests slowly; provider object limits count more than just event entries.
+  - Default no-data response is HTTP 204; failures and empty selections are distinct.
+  - The demo uses the shared QuakeML projection; no magnitude conversion or automatic event identity matching.
+attribution: Preserve GEOFON/GFZ product citation and terms; a common host does not make seismic entries and Kp one product.

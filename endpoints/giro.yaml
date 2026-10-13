@@ -1,0 +1,55 @@
+source: giro-didbase
+channel: giro-fastchar
+producer: null
+producer_note: Station/scaling-product authorship needs a working response; the serving archive alone is insufficient.
+documentation: https://giro.uml.edu/rix/test.html
+access: Documented anonymous example; numeric payload not yet inspected successfully.
+coverage: Station- and characteristic-dependent; nominal collection cadence does not establish complete coverage.
+endpoints:
+  - id: giro.characteristics.latest
+    status: documented_access_unresolved
+    url: https://lgdc.uml.edu/fastchar/getbest
+    method: GET
+    parameters:
+      ursiCode: {type: string, required: true, meaning: Station URSI code}
+      charName: {type: string, required: true, meaning: Comma-separated source characteristic names, examples: ['foF2,hmF2']}
+    responses:
+      - {representation: Tabulated characteristics; exact layout unverified, mapping: giro.characteristics.pending}
+    examples:
+      - {ursiCode: AU930, charName: 'foF2,hmF2'}
+    constraints:
+      - Official example describes the latest 24 hours; no historical query parameters are confirmed here.
+      - Do not infer FastChar parameters from the web form's date_start/date_end fields.
+      - AU930 is the provider's example, not a selected study station.
+  - id: giro.stations
+    status: response_reviewed
+    url: https://lgdc.uml.edu/ionoweb/locations
+    method: GET
+    purpose: Current station list; does not establish historical operating status or measurement availability.
+  - id: giro.characteristics.form
+    status: response_reviewed
+    url: https://giro.uml.edu/didbase/scaled.php
+    method: POST
+    channel: giro-fastchar-form
+    access: Anonymous public form submitted programmatically; returns FastChar text directly.
+    parameters:
+      location: {type: string, required: true, meaning: URSI station code}
+      date_start: {type: string, required: true, meaning: UTC date/time in YYYY-MM-DD HH:MM form}
+      date_end: {type: string, required: true, meaning: UTC upper date/time bound; check returned timestamps}
+      'chosenchars[]': {type: repeated string, reviewed_values: ['0', '17'], meaning: Observed form codes for foF2 and hmF2}
+      query_submit: {type: string, reviewed_values: [Search]}
+    responses:
+      - {representation: FastChar tabulated Version 1.1 text, mapping: giro.characteristics.form}
+    examples:
+      - {location: EA653, date_start: '2025-07-29 00:00', date_end: '2025-07-30 00:00', 'chosenchars[]': ['0', '17'], query_submit: Search}
+    constraints:
+      - HTTP 200 can contain a no-measurement error message; parse content separately from transport status.
+      - The selected form codes are not FastChar GET parameter names.
+      - Client IP is echoed in a comment; the demo removes it before retaining the response.
+access_constraints:
+  - Earlier anonymous requests returned HTTP 504 here; this does not establish permanent service failure.
+  - Raw ionograms and scaled characteristics are separate products; no reproducible raw-ionogram route is selected.
+  - No credentials or account-specific example parameters are stored in this repository.
+attribution:
+  licence: Provider publishes CC BY-NC-SA 4.0 restrictions; verify conditions for the selected route.
+  terms: https://giro.uml.edu/didbase/RulesOfTheRoad.html

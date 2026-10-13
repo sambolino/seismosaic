@@ -1,0 +1,69 @@
+profiles:
+  - id: goes.xrs.recent.json
+    endpoint: goes.xrs.recent
+    status: fields_reviewed_producer_pending
+    record: solar_irradiance_series
+    selection: $[*]
+    qualifiers: {producer: null, channel: swpc-json}
+    grouping:
+      series: One series per reported satellite and band within this endpoint/product context.
+      points: One point per source row; preserve duplicate labels for review rather than silently overwrite them.
+      reason: Avoid an implicit cross-row merge; a later workflow may combine bands only when platform/product/time context agrees.
+    fields:
+      - {literal: swpc-json, target: provenance.channel.name}
+      - {literal: 'https://services.swpc.noaa.gov/json/goes/primary/xrays-6-hour.json', target: provenance.channel.uri}
+      - {literal: XRS, target: provenance.acquisition.instrument.name, basis: Product documentation}
+      - {literal: operational, target: provenance.product.edition}
+      - {literal: 60, target: cadence, unit: s, basis: Documented nominal one-minute sampling}
+    containers:
+      - target: points
+        fields:
+          - {source: time_tag, target: time.label, conversion: Parse source UTC timestamp; no assumed start/end convention}
+          - {literal: 60, target: time.duration, unit: s, basis: Documented one-minute averaging support}
+          - {source: satellite, target: provenance.acquisition.platform.name, conversion: Prefix reported satellite number with GOES-}
+        band_bindings:
+          - {source_energy: 0.05-0.4nm, band: xrs_a, lower: 0.05, upper: 0.4, unit: nm}
+          - {source_energy: 0.1-0.8nm, band: xrs_b, lower: 0.1, upper: 0.8, unit: nm}
+        band_fields:
+          - {source: energy, target: 'irradiance.{band}.wavelength_band.name'}
+          - {binding: lower, target: 'irradiance.{band}.wavelength_band.lower', unit: nm}
+          - {binding: upper, target: 'irradiance.{band}.wavelength_band.upper', unit: nm}
+          - {source: flux, target: 'irradiance.{band}.value', unit: 'W m-2'}
+          - {source: observed_flux, target: 'irradiance.{band}.observed_value', unit: 'W m-2'}
+          - {source: electron_correction, target: 'irradiance.{band}.electron_correction', unit: 'W m-2'}
+          - {literal: mean, target: 'irradiance.{band}.statistic', basis: Product definition; no aggregation performed here}
+          - {source: electron_contaminaton, target: 'irradiance.{band}.quality.flags', conversion: Preserve exact source spelling and value as electron_contaminaton=<reported value>}
+    rules:
+      - Unknown energy labels require review; never guess a band or its bounds.
+      - Preserve null/missing values and quality flags; absence is not zero or false.
+      - No provider row ID is supplied; do not manufacture identity.source_id from a timestamp.
+      - Time labels and averaging duration do not establish exact interval boundaries.
+      - Producer attribution must be resolved before fully qualified semantic output is claimed.
+  - id: goes.xrs.science.netcdf
+    endpoint: goes.xrs.science-archive
+    status: sample_reviewed
+    record: solar_irradiance_series
+    qualifiers: {producer: noaa-ncei, channel: ncei-exis}
+    fields:
+      - {source: Global id attribute, target: provenance.product.name}
+      - {source: Version suffix of global id, target: provenance.product.version}
+      - {literal: science_quality, target: provenance.product.edition}
+      - {source: Global processing_level attribute, target: provenance.product.processing_level}
+      - {source: Global platform=g18, target: provenance.acquisition.platform.name, conversion: GOES-18}
+      - {literal: XRS, target: provenance.acquisition.instrument.name}
+    point_fields:
+      - {source: time, target: time.start, conversion: Decode actual units/calendar; inspected long_name says Record start time}
+      - {source: time, target: time.end, conversion: Start plus 60 seconds for the documented one-minute product}
+      - {literal: 60, target: time.duration, unit: s}
+      - {source: xrsa_flux, target: irradiance.xrs_a.value, unit: 'W m-2'}
+      - {source: xrsb_flux, target: irradiance.xrs_b.value, unit: 'W m-2'}
+      - {source: xrsa_flux_observed and xrsb_flux_observed, target: Band observed_value, unit: 'W m-2'}
+      - {source: xrsa_flux_electrons and xrsb_flux_electrons, target: Band electron_correction, unit: 'W m-2'}
+      - {source: Band flag/flag_excluded and electron_correction_flag, target: Band quality.flags, conversion: Retain named numeric flags; definitions in run metadata}
+      - {literal: mean, target: Band statistic}
+    rules:
+      - Science-quality reprocessing and the operational feed can share underlying measurements; channels do not establish independence.
+      - Masked/fill values are omitted rather than converted into numeric measurements; keep support and available flags.
+      - Inspected time units are seconds since 2000-01-01 12:00:00 UTC and neglect leap seconds; do not reinterpret as J2000 TT.
+      - Validate platform, product, units, time semantics and array shapes before normalizing each file.
+      - This is an inspected product projection, not a complete NetCDF/CF validator or archive-discovery engine.

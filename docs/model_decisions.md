@@ -84,3 +84,7 @@ Temporal relation edges can be added for concrete output needs later. This fragm
 - Retain licences and attribution with the selected product; richer citation/lineage fields remain open.
 
 GOES is complementary solar context. GNSS TEC and LXCat remain outside this first output subset.
+
+## Fixed-scenario selection edges
+
+The Kamchatka demo can select whole catalogue entries and series for comparison, so `--selected_for_comparison_with-->` is now allowed on the generic `event` and `time_series` forms as well as observations. Its basis and assertion provenance describe the output connection. Query windows remain in the demo workflow/run report, not a new ontology frame. The demo's JSON arrays and target locators are storage conventions, not metamodel syntax extensions.

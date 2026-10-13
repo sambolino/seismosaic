@@ -1,0 +1,28 @@
+source: gfz-kp
+channel: gfz-kp-json
+producer: gfz-kp
+documentation: https://kp.gfz.de/en/data
+format_documentation: https://kp.gfz.de/app/format/json.txt
+access: anonymous HTTPS GET
+coverage: Kp archive documented since 1932; availability and definitive/preliminary status depend on date.
+endpoints:
+  - id: gfz.indices
+    url: https://kp.gfz.de/app/json/
+    method: GET
+    parameters:
+      start: {type: string, required: true, meaning: UTC lower bound on interval-start labels}
+      end: {type: string, required: true, meaning: UTC upper bound on interval-start labels; the endpoint start was included in reviewed responses}
+      index: {type: string, required: true, reviewed_values: [Kp, ap]}
+      status: {type: string, reviewed_values: [def], meaning: Optional definitive-only filter; absence does not imply definitive values}
+    responses:
+      - {representation: JSON parallel arrays, mapping: gfz.indices.json}
+    examples:
+      - {start: '2026-01-01T21:00:00Z', end: '2026-01-02T00:00:00Z', index: Kp, status: def}
+      - {start: '2026-01-01T21:00:00Z', end: '2026-01-02T00:00:00Z', index: ap, status: def}
+access_constraints:
+  - These are the reviewed indices and filters, not a complete list of service capabilities.
+  - A returned start equal to query end still represents three hours after it; do not silently shorten the interval.
+  - Missing values and status tokens must be interpreted using provider definitions, not replaced with zero.
+attribution:
+  licence: CC BY 4.0
+  reference: https://doi.org/10.5880/Kp.0001

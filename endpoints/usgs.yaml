@@ -1,0 +1,55 @@
+source: usgs
+channel: usgs-fdsn
+producer: usgs
+documentation: https://earthquake.usgs.gov/fdsnws/event/1/
+protocol: FDSN event web service, version 1 family
+access: anonymous HTTPS GET
+coverage: Global catalogue aggregation; completeness depends on time, region and magnitude.
+endpoints:
+  - id: usgs.events
+    url: https://earthquake.usgs.gov/fdsnws/event/1/query
+    method: GET
+    parameters:
+      format: {type: string, reviewed_values: [geojson, xml]}
+      starttime: {type: string, meaning: Inclusive origin-time lower bound; explicit ISO 8601 UTC}
+      endtime: {type: string, meaning: Inclusive origin-time upper bound; explicit ISO 8601 UTC}
+      updatedafter: {type: string, meaning: Update-time filter; distinct from origin time}
+      eventid: {type: string, meaning: USGS service lookup identifier}
+      minmagnitude: {type: number}
+      maxmagnitude: {type: number}
+      mindepth: {type: number, unit: km}
+      maxdepth: {type: number, unit: km}
+      minlatitude: {type: number, unit: deg}
+      maxlatitude: {type: number, unit: deg}
+      minlongitude: {type: number, unit: deg}
+      maxlongitude: {type: number, unit: deg}
+      latitude: {type: number, unit: deg}
+      longitude: {type: number, unit: deg}
+      maxradius: {type: number, unit: deg}
+      maxradiuskm: {type: number, unit: km}
+      catalog: {type: string}
+      contributor: {type: string}
+      includeallorigins: {type: boolean, reviewed_format: xml}
+      includeallmagnitudes: {type: boolean, reviewed_format: xml}
+      limit: {type: integer, minimum: 1, maximum: 20000}
+      offset: {type: integer, minimum: 1}
+      orderby: {type: string, reviewed_values: [time, time-asc, magnitude, magnitude-asc]}
+    constraints:
+      - maxradius and maxradiuskm are mutually exclusive; radial queries need latitude and longitude.
+      - Use explicit UTC timestamps; returned event times must be checked against the workflow's window.
+      - Do not assume a stable snapshot across paginated requests to a changing catalogue.
+    responses:
+      - {format: geojson, representation: GeoJSON summary, mapping: usgs.geojson}
+      - {format: xml, representation: QuakeML BED 1.2 projection, mapping: earthquake.quakeml}
+    examples:
+      - {format: geojson, starttime: '2026-01-01T00:00:00Z', endtime: '2026-01-02T00:00:00Z', minmagnitude: 5, limit: 1}
+      - {format: xml, eventid: us7000rlzn, includeallorigins: true, includeallmagnitudes: true}
+  - id: usgs.count
+    url: https://earthquake.usgs.gov/fdsnws/event/1/count
+    method: GET
+    purpose: Count matching catalogue entries before a query; not a semantic scientific record.
+    parameter_basis: Query filters above; consult provider documentation for count response formats.
+access_constraints:
+  - Split oversized catalogue queries; the service caps responses at 20000 events.
+  - Prefer the provider's real-time feeds for repeated live display; this profile covers bounded catalogue review.
+attribution: Preserve catalogue contributors and the provider's citation guidance; repository licence does not license source data.

@@ -11,11 +11,13 @@ Established domain concepts guide the model: a small QuakeML projection for seis
 - [ontology.yaml](ontology.yaml): a small draft domain model for discussion.
 - [metamodel.md](metamodel.md): the reused notation and composition specification.
 - [Source notes](docs/sources.md): candidate interfaces and illustrative field mappings.
+- [Endpoints and mappings](docs/interfaces.md): declarative access profiles and source-to-output paths, with unresolved bindings labelled.
+- [Fixed live Kamchatka demo](docs/kamchatka_demo.md): historical live retrieval and an expandable HTML view of a `study`.
 - [Standards alignment](docs/standards.md): reused concepts, format boundaries and projection limits.
 - [Modelling decisions](docs/model_decisions.md): the initial choices and questions still open.
 - [Upstream provenance](UPSTREAM.md): the exact Alertissimo source of the metamodel.
 
-This repository starts with model declarations and documentation. The ontology is ordered YAML-like notation with meaningful repeated directives. It is not an ordinary YAML configuration file.
+This repository starts with model declarations, endpoint/mapping descriptions and documentation. The ontology is ordered YAML-like notation with meaningful repeated directives. It is not an ordinary YAML configuration file. The separate `endpoints/` and `mappings/` files use ordinary YAML; they describe reviewed interfaces without implementing an adapter or mapping interpreter.
 
 ## Initial scope
 
@@ -23,9 +25,9 @@ The `study` root collects generic event, observation, time-series and summary re
 
 Named quantities such as foF2, hmF2, Kp and ap compose shared scalar contents while retaining their definitions and units. GOES XRS irradiance uses a parameterized wavelength-band namespace. Series specialize a common `time_series` form, so the root can reference that form without listing every concrete series. This uses a separately documented local metamodel extension; it does not add runtime inheritance or a parser.
 
-USGS and EMSC supply the reviewed earthquake examples; GFZ supplies a concrete geomagnetic interval example. GIRO/DIDBase is the candidate ionospheric source, with a successful response and station coverage still to be confirmed. GOES XRS provides the solar-context declarations and a reviewed recent JSON feed; a historical science-quality archive product remains to be inspected.
+USGS, EMSC and GEOFON supply earthquake catalogue entries; GFZ supplies Kp/ap intervals. The fixed Kamchatka demo also retrieves ionogram-derived foF2/hmF2 through GIRO's historical form and GOES-18 science-quality XRS daily products. Source coverage, missing values and product context remain explicit.
 
-The short-visit work is to refine this fragment with the host, review a small number of source mappings and record unresolved questions. No runtime, ontology interpreter, API adapters, DSL, analysis pipeline or correlation result is implemented here.
+The short-visit work is to refine this fragment with the host, review a small number of source mappings and record unresolved questions. A small fixed-request runtime demo now tests these output declarations. There is no generic planner, ontology interpreter, DSL, statistical analysis or correlation result.
 
 ## Development
 

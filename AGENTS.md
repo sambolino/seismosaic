@@ -6,11 +6,13 @@ Develop a small semantic model for seismic and ionospheric data using the existi
 
 ## Current scope
 
-- Work on domain declarations, source mapping notes and modelling decisions.
+- Work on domain declarations, declarative endpoint/mapping descriptions, source review notes and modelling decisions.
 - Model scientific output. Keep selection patterns, comparison frames and analysis instructions in the workflow layer; do not embed them in this ontology.
 - Do not add runtime classes, an ontology parser or iterator, API adapters, orchestration, a DSL or statistical analysis without an explicit change of scope.
+- The fixed Kamchatka demo is now authorized: small provider projections, bounded live requests, a local HTML viewer and focused tests. Keep its request side hardcoded; this does not authorize a generic planner, ontology interpreter or analysis engine.
 - Seismosaic defines its own structural root and record families; do not assume an Alertissimo Portfolio.
 - Keep source mappings distinct from the semantic vocabulary.
+- Keep provider query parameters in endpoints/ and response-to-output paths in mappings/. These are ordinary YAML descriptions, not an executable mapping DSL; mark unverified bindings explicitly.
 - Preserve physical distinctions between earthquake events, measured or derived ionospheric characteristics, contextual indices and possible future physical-model inputs.
 - Record temporal support, coordinate or depth references where known, units, quality and provenance.
 - An association or comparison edge does not establish causality.

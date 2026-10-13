@@ -1,0 +1,28 @@
+id: giro.characteristics.form
+endpoint: giro.characteristics.form
+status: sample_reviewed
+record: ionospheric_series
+representation: Tabulated Rapid Access Ionospheric Characteristics, Version 1.1
+qualifiers:
+  producer: 'station-{lowercase URSI code}; local alias for the contributing observing site'
+  channel: giro-fastchar-form
+layout: Six whitespace-separated columns, following the exact Time CS foF2 QD hmF2 QD header.
+fields:
+  - {source: Confirmed station header and station-list U/N/Lat/Lon, target: provenance.acquisition.station}
+  - {source: Instrument header, target: provenance.acquisition.instrument.name}
+point_fields:
+  - {source: Column 0, target: time.instant, meaning: Source UTC timestamp}
+  - {source: Column 1, target: quality.confidence_code, meaning: Preserve CS verbatim}
+  - {source: Column 2, target: foF2.value, unit: MHz}
+  - {source: Column 3, target: foF2.quality.flags, meaning: Preserve QD token}
+  - {source: Column 4, target: hmF2.value, unit: km}
+  - {source: Column 5, target: hmF2.quality.flags, meaning: Preserve QD token}
+rules:
+  - CS=999 is manual according to this response header; leave confidence_score absent and do not infer verified-clean status.
+  - CS=-1 is unknown; retain the code without a numeric confidence score.
+  - Ordinary 0–100 scores retain their documented score scale, not a probability.
+  - QD=// retains the documented automatic interpretation convention; ordinary score alone is insufficient.
+  - Alphabetic Q/D characters retain their separate qualifying/descriptive letter roles; slash placeholders are not letters.
+  - Unknown layouts or numeric missing markers require review; do not guess or emit zero.
+  - Current station-list membership does not establish historical operation; no returned measurements is not a scientific null result.
+  - Cadence is omitted; EA653's inspected series used 7.5-minute spacing, not a universal 15-minute grid.
