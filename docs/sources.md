@@ -1,6 +1,6 @@
 # Source review and illustrative mappings
 
-First review: 2026-10-12; identity/estimate and interval follow-up on the same date. This is a source-access and modelling note, not an adapter implementation. Public documentation and small anonymous HTTP responses were inspected. A successful sample request does not establish completeness, continuous availability or a validated ingestion workflow.
+First review: 2026-10-12; identity/estimate and interval follow-up on the same date; output-form mappings revised 2026-10-13. This is a source-access and modelling note, not an adapter implementation. Public documentation and small anonymous HTTP responses were inspected. A successful sample request does not establish completeness, continuous availability or a validated ingestion workflow.
 
 ## Current assessment
 
@@ -35,7 +35,7 @@ Endpoint: `https://earthquake.usgs.gov/fdsnws/event/1/query`.
 
 The service limits a query to 20,000 events. A later client would need bounded selections and complete pagination, including checks for missing or duplicated results. The API searches catalogue events, not seismic station waveforms. Worldwide query support does not imply uniform detection thresholds or historical completeness. Choose a catalogue, period and magnitude range before assessing coverage.
 
-GeoJSON returns a FeatureCollection. These paths are relative to an `event`:
+GeoJSON returns a FeatureCollection. These paths are relative to a `seismic_event` record:
 
 | Provider field | Proposed semantic path or retention rule |
 | --- | --- |
@@ -123,15 +123,15 @@ Parameters: `start`, `end`, `index=Kp` or `index=ap`; optional `status=def` requ
 
 The archive is documented since 1932. Both Kp and lowercase ap describe three-hour intervals; daily Ap is different. ap is derived from Kp on an equivalent-range scale, so the pair should not be treated as independent measurements.
 
-| Observed/source field | Relative path in `geomagnetic_index` | Interpretation |
+| Observed/source field | Relative path in `geomagnetic_index` (or a `geomagnetic_series` point) | Interpretation |
 | --- | --- | --- |
-| Selected index name | `name` | Kp or ap |
-| `Kp[i]` or corresponding `ap[i]` | `value` | Preserve the chosen scale |
+| Selected index name | Named `Kp` or `ap` container | Quantity identity is in the path |
+| `Kp[i]` or corresponding `ap[i]` | `Kp.value` or `ap.value` | Preserve the chosen scale |
 | `datetime[i]` | `time.start` | Start of the three-hour UTC interval |
 | Documented duration | `time.end` | Start plus three hours; record this mapping derivation |
 | `status[i]` | `quality.status` | `def` or `pre`, when supplied |
 | `meta.source`, `meta.license` | Provenance/attribution retained for review | Observed response uses `meta`; format description calls it `metadata` |
-| Index definition | `unit` | Kp is dimensionless; ap equivalent range is in units of 2 nT |
+| Index definition | Quantity declaration units | Kp is dimensionless; ap equivalent range is in units of 2 nT |
 
 Parallel arrays must be aligned by index and checked for equal lengths. A request ending at 06:00 returned starts at 00:00, 03:00 and 06:00; the last record describes 06:00–09:00. Selection boundaries are not the same as the support of every returned interval.
 
@@ -149,7 +149,7 @@ This is an anonymous latest-24-hour example, not a confirmed arbitrary-date quer
 
 | Information to retain | Draft-model placement |
 | --- | --- |
-| Station identifier | `ionospheric_observation.station_id`; corresponding `station.identity.source_id` |
+| Station identifier | `provenance.acquisition.station.identity.source_id`, with its reported identifier scheme |
 | Characteristic timestamp | `ionospheric_observation.time.instant` |
 | foF2 value and units | `foF2.value`, MHz |
 | hmF2 value and units | `hmF2.value`, km |
@@ -192,7 +192,32 @@ The feed responded with HTTP 200 in this review. Its directory listing returned 
 
 NCEI provides historical operational and science-quality EXIS products in NetCDF, including XRS averages and flare products. Historical access is an archive-product task with format/library and calibration choices, not the same API contract as SWPC's recent feed. No manual-download workflow or historical adapter is selected here.
 
-A GOES quantity/record branch has not yet been added to the ontology. LXCat likewise remains a possible input to a later physical model, outside this observational access review.
+A GOES observation and series profile is now declared. The following mapping is relative to `solar_observation`, or to `solar_irradiance_series.points`. It retains product output rather than introducing a data-ingestion implementation.
+
+| Provider information | Semantic path or rule |
+| --- | --- |
+| `time_tag` | `time.label`; source label for a one-minute average, not an assumed instantaneous measurement |
+| Documented one-minute support | `time.duration=60` seconds; exact start/end bounds require product evidence |
+| `satellite` | `provenance.acquisition.platform.name`, e.g. GOES-18; preserve the reported satellite |
+| Instrument documentation | `provenance.acquisition.instrument.name=XRS` |
+| `energy=0.05-0.4nm` | Local band namespace `irradiance.xrs_a`; band limits 0.05 and 0.4 nm |
+| `energy=0.1-0.8nm` | Local band namespace `irradiance.xrs_b`; band limits 0.1 and 0.8 nm |
+| Original energy label | Corresponding `wavelength_band.name` |
+| `flux` | Band `value`, W m-2 |
+| `observed_flux` | Band `observed_value`, W m-2 |
+| `electron_correction` | Band `electron_correction`, W m-2 |
+| `electron_contaminaton` | Preserve the exact source flag and its value in that band's `quality.flags`; absence is not false |
+| Averaging product | Band `statistic=mean`, based on the product definition |
+
+Same-epoch band rows can be represented together only when their platform/product context agrees; quality and correction values stay with the corresponding band. There is no provider row ID in the inspected feed, so no `identity.source_id` is fabricated from timestamp alone.
+
+The [XRS L2 Readme](https://data.ngdc.noaa.gov/platforms/solar-space-observing-satellites/goes/goes16/l2/docs/GOES-R_XRS_L2_Data_ReadMe.pdf) and [User Guide](https://data.ngdc.noaa.gov/platforms/solar-space-observing-satellites/goes/goes16/l2/docs/GOES-R_XRS_L2_Data_Users_Guide.pdf) identify NCEI as the producer of reprocessed science-quality datasets. Product producer, physical satellite/instrument and serving archive are different roles. For science-quality output, `noaa-ncei` is a proposed producer alias; `ncei-exis` and `swpc-json` identify actual archive/service routes. The operational product's precise producer attribution still needs its metadata; serving it through SWPC alone does not establish authorship.
+
+For historical comparison, the representative candidate is science-quality XRS `avg1m`. Its [GOES-18 January 2026 directory](https://data.ngdc.noaa.gov/platforms/solar-space-observing-satellites/goes/goes18/l2/data/xrsf-l2-avg1m_science/2026/01/) listed `sci_xrsf-l2-avg1m_g18_d20260101_v2-2-1.nc` during the review. The newer Readme announces another version; record the actual file/product version instead of inferring it from current documentation. The directory listing was inspected, not the NetCDF data or its complete schema. Programmatic archive access and a NetCDF library can supply a later workflow; manual downloads are not proposed.
+
+Operational and science-quality products use related mission measurements with different processing/calibration. They are not independent evidence merely because producer or channel labels differ. Keep product edition/version, acquisition information and supplied lineage. These declarations do not claim CF conformance or a complete calibration model.
+
+LXCat remains a possible input to a later physical model, outside this observational access review.
 
 ## Small local reproduction queries
 
@@ -247,4 +272,4 @@ done
 
 ## Next model discussion
 
-The first estimate/identity iteration is recorded in the ontology and model decisions. Next, review the scientific criteria for cross-catalogue identity and the required uncertainty/provenance detail. For the ionospheric part, select one station and characteristic with verified coverage/access. The study region and scientific comparison windows are still open.
+The output forms and updated paths are recorded in the ontology and model decisions. Next, confirm a bounded GIRO response and inspect the selected historical GOES product's metadata and time support. Scientific selection criteria belong to the workflow layer; the ontology retains returned values, source context and supported output connections.

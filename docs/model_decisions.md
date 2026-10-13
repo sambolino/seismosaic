@@ -1,111 +1,86 @@
-# Initial modelling decisions
+# Modelling decisions
 
-## Reused notation
+## Scope and notation
 
-Seismosaic keeps Alertissimo's containers, fields, projections, permissive references, repeated references, producer/channel qualification and separate connection plane. It introduces domain vocabulary rather than runtime structures.
+This ontology describes scientific output. Selection patterns, comparison windows, thresholds and analysis instructions belong to the workflow layer. The `study` root collects returned records; membership and time overlap make no scientific association claim.
 
-## Alignment with domain standards
+Composition, parameterization and specialization have separate meanings. Quantity containers compose `<_quantity>` contents. GOES band names parameterize a shared irradiance structure. Record families specialize event, observation, time-series or summary forms with `$is`. The local metamodel extension defines polymorphic references and non-conflicting refinement; see [metamodel](../metamodel.md) and [upstream provenance](../UPSTREAM.md). No interpreter is implemented.
 
-Use a small QuakeML BED 1.2 projection for event estimates, SAO/URSI conventions for ionospheric characteristics and interpretation metadata, and GFZ's documented definitions for the geomagnetic indices. [Standards alignment](standards.md) records the correspondence, format boundaries and fields still outside the projection.
+## Record forms
 
-The modelling contribution is the representation of these families together with their time support, spatial context, quality, provenance and explicit comparison basis. Existing seismic event/origin/magnitude distinctions guide the vocabulary. The draft does not claim to replace QuakeML, SAO or existing service clients.
-
-## Provisional root
-
-The draft uses `study` as a research-context collection of records. It is not an earthquake identity, a station identity or an implementation of a workflow. No record becomes scientifically associated with another merely because both occur in a study.
-
-The root remains a design question. Event-centred, station-centred and interval-centred views may all be useful. A single compulsory wrapper should not be imposed before the intended comparisons are understood.
-
-## Seismic information
-
-An `event` represents a source's catalogue entry. It may contain several origins and magnitudes using repeated references. Each estimate can retain its source identifier, quality and provenance. A source-selected preferred estimate is marked by `preferred`; preference is relative to that catalogue entry and response, not a judgement of physical accuracy.
-
-Event time, epicentral position and depth belong to the origin estimate. Magnitude value and magnitude scale stay together. `magnitude.origin_id` retains a source-reported origin reference where supplied. Several origins and magnitudes do not imply that every magnitude belongs to every origin, or that returned estimates are independent measurements. A preferred magnitude must retain its actual origin reference even when that differs from the preferred origin.
-
-### Identity and estimate paths
-
-The primary identifier remains at `identity.source_id`, with `identity.namespace` stating the assigning catalogue or identifier scheme. Source-supported additional identifiers use repeated `identity.identifier` entries, each carrying its own `source_id` and `namespace`. The `<_identifier>` projection imports identifier fields without adding an extra primary path segment.
-
-For the first mappings, `usgs:event`, `emsc:unid`, `emsc:evid` and `quakeml:publicID` are descriptive namespace labels chosen in the mapping notes, not provider-declared standard vocabulary. Identifier strings remain unchanged. A delivery channel does not assign the identifier namespace.
-
-| Semantic path, relative to an event | Meaning |
-| --- | --- |
-| `identity.source_id`, `identity.namespace` | Primary catalogue-entry identifier and its scope |
-| `identity.identifier.source_id`, `identity.identifier.namespace` | Additional identifiers reported for that entry |
-| `origin.identity.source_id` | Identifier of one origin estimate, where supplied |
-| `origin.time.instant`, `origin.position.latitude`, `origin.depth` | Values belonging to that origin |
-| `origin.preferred` | Source preference among the entry's origins |
-| `magnitude.identity.source_id`, `magnitude.value`, `magnitude.scale` | One magnitude estimate and its source identifier |
-| `magnitude.origin_id` | Source reference to its associated origin |
-| `magnitude.preferred` | Source preference among the entry's magnitudes |
-| `origin.provenance`, `magnitude.provenance` | Provenance of the immediately enclosing estimate |
-| `provenance.updated_at` | Source-reported catalogue-entry update time |
-
-Repeated origins and magnitudes keep singular semantic paths; public paths contain no array indexes. A summary may make only one estimate available without saying how many estimates exist in the full bulletin. Unknown identifiers, preference and estimate authorship remain unspecified.
-
-### Two catalogue entries versus several estimates
-
-The reviewed USGS `us7000rlzn` and EMSC `20260101_0000344` entries remain separate events. Their near-coincident times and positions make them candidates for identity review. The nondirectional `same_event_as` edge permits an explicit identity assertion with basis and provenance after that review; the example does not populate such an assertion.
-
-Additional estimates within one EMSC entry are a different case. Its inspected QuakeML response returned ten origins and ten magnitudes, including explicit preferred identifiers and magnitude-to-origin references. These fit the repeated containers under that entry. They are not ten earthquakes.
-
-Origin and magnitude provenance describes the estimate's reported author or agency where known. Entry-level catalogue provenance does not establish authorship of every nested estimate. No nested `@producer:channel` qualifiers are introduced; the existing metamodel uses nested provenance for this context.
-
-Source update time is separate from origin time and retrieval time. An update timestamp alone does not reconstruct revision history. Revision connections, retractions and bulletin details remain a later discussion under the existing edge-plane rules.
-
-## Ionospheric information
-
-An `ionospheric_observation` describes an ionogram-derived characteristic at a station and time. The first explicit quantities are foF2 and hmF2. Their derivation or scaling information and quality should remain available.
-
-An ionogram is the underlying data product, not interchangeable with its derived characteristic. Linking to ionograms can be added once the required representation is agreed.
-
-Quality and provenance can be described at the observation or characteristic level. If the source supplies different quality or derivation information for foF2 and hmF2, retain it with the corresponding quantity.
-
-Keep URSI qualifying and descriptive letters in separate quantity fields when supplied. `quality.scaling` describes ionogram interpretation; `quality.evaluation_mode` retains a seismic estimate's reported evaluation mode. These roles should not be conflated because both can describe manual or automatic processing.
-
-FastChar's source confidence token belongs in `quality.confidence_code`. PITHIA documents `CS=999` for verified-clean manual scaling: retain the token and its documented interpretation, with no numeric `confidence_score`. Ordinary scores retain the documented 0–100 scale; special codes are not scores. This is a route-specific mapping decision awaiting an inspected successful response, not a claim about every GIRO interface. See the mapping table in [standards alignment](standards.md).
-
-The station identifier in an observation is the provider's reported station identifier. An `observed_at` edge can express a connection to a separately described station.
-
-## Context indices
-
-A `geomagnetic_index` carries its index name, value, unit interpretation and time interval. Kp and ap are related representations of geomagnetic activity, not independent measurements. Daily Ap is a different time product and is outside the initial fragment.
-
-An index interval is not an instantaneous sample or a station-local measurement. The model does not interpolate indices or prescribe a common sampling grid.
-
-### Interval example alongside the earthquake entries
-
-The second review queried Kp and ap separately for starts from 2026-01-01T21:00:00Z through 2026-01-02T00:00:00Z. Both responded successfully with definitive values. The first returned pair was Kp 2.667 and ap 12, describing the same three-hour interval:
-
-| Relative path in `geomagnetic_index` | Kp example | ap example |
+| Form | Concrete examples | Scientific contents |
 | --- | --- | --- |
-| `name` | Kp | ap |
-| `value` | 2.667 | 12 |
-| `unit` | dimensionless | 2 nT equivalent range |
-| `time.start` | 2026-01-01T21:00:00Z | 2026-01-01T21:00:00Z |
-| `time.end` | 2026-01-02T00:00:00Z | 2026-01-02T00:00:00Z |
-| `quality.status` | def | def |
+| `event` | `seismic_event` | Catalogue identity, source-qualified origin/magnitude estimates |
+| `observation` | `ionospheric_observation`, `geomagnetic_index`, `solar_observation` | Values sharing one acquisition or product context and temporal support |
+| `time_series` | `ionospheric_series`, `geomagnetic_series`, `solar_irradiance_series` | Point arrays with shared sample context and domain quantity containers |
+| `summary` | `ionospheric_summary`, `solar_irradiance_summary` | Already reported aggregates, with statistic and derivation provenance |
 
-The source supplies the interval start; its documented three-hour support determines the end. The domain convention is a half-open interval `[start, end)`. Both reported earthquake origin times lie inside it. This is time overlap with a planetary context index, not evidence of event identity, an anomaly or physical coupling. These tables illustrate field meanings, not a runtime serialization.
+The root references these generic forms. Concrete names stay in output paths. This is semantic specialization, not projection: `study.geomagnetic_series` does not acquire a `time_series` path segment.
 
-The query also returned the record starting at the requested end, 00:00, whose support is 00:00–03:00. That second interval does not contain the earthquake times. Provider query boundaries and semantic interval support must be kept distinct. Lowercase ap is a related scale derived from Kp; this pair is not two independent confirmations of geomagnetic conditions.
+The `<_sample_context>` projection shares identity, time, quality and provenance between observations and series points. Concrete series refine the inherited `points.items` content with named quantity references. That declares compatible contents; it does not require creating or reconstructing standalone observation records from an array.
 
-## Comparison connections
+A record or point should group only values with a genuinely shared context. Values with different acquisition times, support intervals or product provenance must not silently be combined. A multi-characteristic ionospheric acquisition or simultaneous XRS bands can retain quantity-specific quality and provenance.
 
-The optional `selected_for_comparison_with` edge records a selection of an observation for comparison with a seismic event. Its basis and provenance belong to the connection. It makes no claim of an anomaly, statistical correlation, precursor or physical coupling.
+## Scientific quantities and paths
 
-Time windows, distance criteria, background selection and control periods need scientific agreement before this edge is populated. There is no correlation implementation in this repository.
+foF2, hmF2, Kp and ap remain first-class named containers. They share scalar contents by composition, not a quantity inheritance hierarchy. Their definitions and units stay in the ontology. A local unit declaration refines an otherwise unspecified unit of the shared value/uncertainty field.
 
-## Open questions for the visit
+| Example path | Meaning |
+| --- | --- |
+| `study.seismic_event@producer:channel.origin.depth` | One source-reported origin depth, km |
+| `study.ionospheric_observation@producer:channel.foF2.value` | Critical frequency, MHz |
+| `study.geomagnetic_index@producer:channel.ap.value` | Equivalent-range index on the 2 nT scale |
+| `study.ionospheric_series@producer:channel.points.hmF2.value` | Derived peak height in one series point, km |
+| `study.solar_irradiance_series@producer:channel.points.irradiance.xrs_b.value` | Band-specific reported irradiance, W m-2 |
+| `study.ionospheric_summary@producer:channel.foF2.statistic` | Meaning of a reported aggregate value, such as mean |
 
-- Which ionospheric characteristic and station/event sample have suitable overlapping coverage and programmatic access?
-- What should a study group, and do we need a root at all for the first examples?
-- Which evidence is sufficient to assert cross-catalogue event identity, and how should conflicting identifiers or retractions be handled?
-- What further origin/magnitude uncertainty, authorship and revision information does the selected scientific comparison require?
-- Which coordinate and vertical reference information is available from each selected source?
-- What spatial footprint does the selected ionospheric characteristic represent, and how should it enter a comparison with an epicentre?
-- How should autoscaling confidence, manual scaling and missing or unavailable values be represented?
-- Is a level vocabulary useful here? No level profile is assigned in the initial draft.
-- Which solar-context product, if any, is needed alongside geomagnetic context?
+GOES `<{band}>` supplies a namespace for a common irradiance structure. It does not automatically resolve a quantity schema by name. The local aliases `xrs_a` and `xrs_b` have documented wavelength mappings in [source notes](sources.md); the original band label and limits can be retained. Unknown bands require their source definitions before being treated as a known canonical band.
 
-GOES remains a possible solar-context source. LXCat remains a possible input to later physical interpretation or modelling; neither is assigned an implemented integration or a committed model branch.
+A reported `statistic` describes the output value, not an instruction to calculate it. Counts belong in `summary.sample_count`, not in a frequency-valued field. No Kp averaging, magnitude conversion or other scientific calculation is implied by structural reuse.
+
+## Seismic catalogue entries and estimates
+
+`seismic_event` keeps the small QuakeML BED 1.2 projection: multiple origins and magnitudes, source-selected preference, optional magnitude-to-origin references, estimate quality and provenance. The generic `event` form does not force a common timestamp: seismic event times belong to their origin estimates.
+
+Primary identifiers use `identity.source_id` and `identity.namespace`. Additional source-supported identifiers use repeated `identity.identifier` entries. Local namespace labels `usgs:event`, `emsc:unid`, `emsc:evid` and `quakeml:publicID` identify the reviewed schemes; they are not claimed to be provider-declared standard vocabulary.
+
+The reviewed USGS `us7000rlzn` and EMSC `20260101_0000344` entries remain separate catalogue records. EMSC's detailed response supplied ten origins and ten magnitudes within its entry; these are estimates, not ten earthquakes. A source preference is not a judgement of physical accuracy. Preserve each magnitude's supplied origin reference.
+
+Estimate provenance describes the immediately enclosing estimate. Entry-level catalogue provenance does not establish every estimate's authorship. Nested estimates do not receive ordinary nested qualifiers. Separately qualified estimate records remain a possible next extension when their independent addressability is needed.
+
+Source update time in `provenance.updated_at` differs from physical event time and retrieval time. A timestamp alone does not reconstruct a revision history.
+
+## Acquisition provenance and scientific authorship
+
+Station, platform and instrument information sits in `provenance.acquisition`. The reusable `station` container retains identity, location and elevation metadata without an independent provenance reference, avoiding a recursive station/provenance structure. There is no compulsory first-level station registry or duplicate `station_id`/station-edge representation.
+
+A record may therefore carry `provenance.acquisition.station.identity.source_id` or `provenance.acquisition.platform.name`. The product producer is the author of the addressed scientific content; the acquisition instrument and the delivery route are separate roles. `provenance.product` retains product name, edition, processing level and version when known.
+
+Qualifier equality does not establish duplicate record identity. Different producers can process the same inputs, so differing qualifiers do not establish independent evidence. Preserve scientific identifiers, acquisition context, product versions and supplied lineage evidence. A channel identifies an actual route, such as `usgs-fdsn`, not merely a protocol version such as FDSN event 1.2.
+
+## Time support and quality
+
+`time.instant` represents an instant; `time.start/end` give a half-open support interval. A source timestamp labelling an average can use `time.label`, with documented `time.duration` even when exact interval bounds are not established. A label and interval may coexist. A series' outer time context describes its reported extent; point times describe the values.
+
+Nominal `cadence` is sample spacing, not support duration or a promise of gap-free observations. Three-hour Kp/ap values remain intervals; GOES one-minute means remain averaged values. No common grid, interpolation or implied zero-width support is imposed.
+
+URSI qualifying/descriptive letters remain distinct fields. Seismic `quality.evaluation_mode` and ionogram `quality.scaling` have distinct meanings. The documented FastChar `CS=999` token is preserved in `confidence_code`, interpreted for that route as verified-clean manual scaling, with no numeric confidence score. Actual response placement and scope remain to be confirmed.
+
+Shared quality paths do not imply a universal quality ranking. Missing values remain unavailable, not zero. Uncertainties and flags retain their reported meaning and scope.
+
+## Output connections
+
+`same_event_as` asserts catalogue-entry identity with evidence and provenance. The reviewed candidate pair is not automatically linked. `selected_for_comparison_with` records an output selection relationship; its basis may describe supplied evidence, but the workflow pattern is not copied into the ontology.
+
+`derived_from` is allowed for summaries only where the inputs and derivation are actually supported by source information. A producer-supplied aggregate does not force its input observations to be materialized. Derivation is not independence or causation. A workflow identifier or reference can be retained in provenance without modelling the workflow itself.
+
+Temporal relation edges can be added for concrete output needs later. This fragment does not introduce comparison frames, the full Allen relation vocabulary, an anomaly result model, runtime storage or an analysis pipeline.
+
+## Next bounded checks
+
+- Confirm a GIRO response and the station/characteristic coverage and quality scope.
+- Inspect one historical GOES science-quality product, its actual metadata, time support and flags.
+- Review which independently addressable seismic estimates and output connections are needed.
+- Retain licences and attribution with the selected product; richer citation/lineage fields remain open.
+
+GOES is complementary solar context. GNSS TEC and LXCat remain outside this first output subset.

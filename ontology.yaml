@@ -12,6 +12,9 @@
 # Standard concept alignment and projection limits: docs/standards.md.
 # Seismic estimates follow a small QuakeML BED 1.2 projection; ionospheric
 # quantities and interpretation metadata draw on SAO/URSI conventions.
+# Record specialization uses the local documentation extension in metamodel.md.
+# Scientific quantity contents use composition, not a quantity type hierarchy.
+# Selection patterns and comparison windows belong to the workflow layer.
 # UTC is the target time scale for these initial examples; source conversions
 # and reference information must be documented rather than assumed.
 #
@@ -42,6 +45,13 @@
   [end]:
     description: "Exclusive end of a time interval, expressed in UTC"
     type: string
+  [label]:
+    description: "Source timestamp labelling an interval-supported value, expressed in UTC; does not by itself establish interval boundaries"
+    type: string
+  [duration]:
+    description: "Documented temporal support duration, where known; distinct from sampling cadence"
+    type: float
+    unit: s
 
 <position>:
   [latitude]:
@@ -104,6 +114,37 @@
   [updated_at]:
     description: "Source-reported update time of the enclosing record or estimate, expressed in UTC; not its physical event time or retrieval time"
     type: string
+  $ref: <acquisition>
+  $ref: <product>
+
+<platform>:
+  [name]:
+    description: "Reported observing platform, such as GOES-18"
+    type: string
+
+<instrument>:
+  [name]:
+    description: "Reported observing instrument, such as XRS"
+    type: string
+
+<acquisition>:
+  description: "Physical observing context of the enclosing scientific data, where supplied; distinct from its product producer and delivery channel"
+  $ref: <station>
+  $ref: <platform>
+  $ref: <instrument>
+
+<product>:
+  description: "Reported scientific product identity and processing context"
+  [name]:
+    type: string
+  [version]:
+    type: string
+  [edition]:
+    description: "Reported product edition, such as operational or science_quality; vocabularies remain product-specific"
+    type: string
+  [processing_level]:
+    description: "Reported product processing level; a source label, not a Seismosaic ontology level"
+    type: string
 
 <origin>:
   description: "One origin estimate represented by the enclosing catalogue entry; aligned with QuakeML Origin"
@@ -144,45 +185,98 @@
     description: "Reported uncertainty of the magnitude estimate"
     type: float
 
-<foF2>:
-  description: "Ionogram-derived ordinary-wave critical frequency of the highest F-region stratification; URSI foF2 (code 00)"
+<_quantity>:
+  description: "Reusable scalar quantity contents; concrete quantities supply their meaning and units"
   $ref: <quality>
   $ref: <provenance>
   [value]:
     type: float
+  [uncertainty]:
+    description: "Reported scalar uncertainty, where supplied; retain its source interpretation"
+    type: float
+  [statistic]:
+    description: "Reported statistic represented by this value when it is an aggregate; describes output, not a requested calculation"
+    type: string
+
+<foF2>:
+  description: "Ionogram-derived ordinary-wave critical frequency of the highest F-region stratification; URSI foF2 (code 00)"
+  $ref: <_quantity>
+  [value]:
     unit: MHz
   [uncertainty]:
-    description: "Reported uncertainty, where supplied"
-    type: float
     unit: MHz
 
 <hmF2>:
   description: "Derived height of the F2-layer peak electron density; retain the derivation method and distinguish it from virtual height h'F2"
-  $ref: <quality>
-  $ref: <provenance>
+  $ref: <_quantity>
   [value]:
-    type: float
     unit: km
   [uncertainty]:
-    description: "Reported uncertainty, where supplied"
-    type: float
     unit: km
 
+<Kp>:
+  description: "Official planetary geomagnetic activity index on its dimensionless Kp scale; GFZ reports three-hour support, carried by the enclosing time context"
+  $ref: <_quantity>
+  [value]:
+    unit: dimensionless
+  [uncertainty]:
+    unit: dimensionless
+
+<ap>:
+  description: "Equivalent-range index derived from Kp, in units of 2 nT; lowercase ap is distinct from daily Ap"
+  $ref: <_quantity>
+  [value]:
+    unit: "2 nT"
+  [uncertainty]:
+    unit: "2 nT"
+
+<wavelength_band>:
+  [name]:
+    description: "Source-reported band label, where supplied"
+    type: string
+  [lower]:
+    type: float
+    unit: nm
+  [upper]:
+    type: float
+    unit: nm
+
+<irradiance>:
+  description: "GOES XRS soft X-ray irradiance by wavelength band; xrs_a and xrs_b are local band aliases, not delivery channels"
+  <{band}>:
+    $ref: <_quantity>
+    $ref: <wavelength_band>
+    [value]:
+      unit: "W m-2"
+    [uncertainty]:
+      unit: "W m-2"
+    [observed_value]:
+      description: "Reported irradiance before the electron-contamination correction, where supplied"
+      type: float
+      unit: "W m-2"
+    [electron_correction]:
+      description: "Reported estimated electron-contamination contribution; retain product definitions and thresholds"
+      type: float
+      unit: "W m-2"
+
 <event>:
-  description: "A source's seismic catalogue entry, retaining its origin and magnitude estimates and source preferences"
+  description: "Common event-record form; concrete event families retain their own scientific time and quantity structures"
   $ref: <identity>
-  $refs: <origin>
-  $refs: <magnitude>
   $ref: <quality>
   $ref: <provenance>
   $edges:
     --same_event_as-- <event>@{producer}:{channel}
 
+<seismic_event>:
+  $is: <event>
+  description: "A source's seismic catalogue entry, retaining its QuakeML-style origin and magnitude estimates and source preferences"
+  $refs: <origin>
+  $refs: <magnitude>
+
 <station>:
-  description: "Observing station as described by its source"
+  description: "Observing-site metadata within acquisition provenance; not a compulsory first-level registry record"
   $ref: <identity>
   $ref: <position>
-  $ref: <provenance>
   [name]:
     type: string
   [elevation]:
@@ -193,47 +287,106 @@
     description: "Reported vertical reference, where supplied"
     type: string
 
-<ionospheric_observation>:
-  description: "Ionogram-derived characteristics at a station and time"
+<_sample_context>:
+  description: "Reusable acquisition or product-value context; does not instantiate standalone measurement records"
   $ref: <identity>
   $ref: <time>
-  $ref: <foF2>
-  $ref: <hmF2>
   $ref: <quality>
   $ref: <provenance>
-  [station_id]:
-    description: "Station identifier reported by the characteristic's source"
-    type: string
+
+<observation>:
+  description: "Common observation-record form; its concrete scientific containers identify the represented values"
+  $ref: <_sample_context>
   $edges:
-    --observed_at--> <station>@{producer}:{channel}
     --selected_for_comparison_with--> <event>@{producer}:{channel}
 
+<ionospheric_observation>:
+  $is: <observation>
+  description: "Ionogram-derived characteristics sharing station and time context; station metadata belongs to acquisition provenance"
+  $ref: <foF2>
+  $ref: <hmF2>
+
 <geomagnetic_index>:
-  description: "Planetary Kp or ap value over a three-hour UTC interval [time.start, time.end); time.instant does not represent its temporal support"
+  $is: <observation>
+  description: "Planetary Kp/ap values over a three-hour UTC interval [time.start, time.end); carries no observing-station requirement"
+  $ref: <Kp>
+  $ref: <ap>
+
+<solar_observation>:
+  $is: <observation>
+  description: "GOES XRS irradiance values sharing product, platform and time context; averaged values retain their temporal support"
+  $ref: <irradiance>
+
+<time_series>:
+  description: "Common time-series record form; concrete series add quantity containers to the inherited sample context"
+  $ref: <identity>
   $ref: <time>
   $ref: <quality>
   $ref: <provenance>
-  [name]:
-    description: "Index name; lowercase ap is distinct from daily Ap"
-    type: string
-    enum: [Kp, ap]
-  [value]:
+  [cadence]:
+    description: "Source-reported nominal sample spacing, where known; not a promise of gap-free data and not the value's support duration"
     type: float
-  [unit]:
-    description: "Index unit interpretation: dimensionless Kp scale or equivalent range in 2 nT for ap"
-    type: string
+    unit: s
+  <points>:
+    type: array
+    items:
+      $ref: <_sample_context>
+
+<ionospheric_series>:
+  $is: <time_series>
+  description: "Ionogram-derived characteristic series; station and scaling provenance remain available at their supplied scopes"
+  <points>:
+    items:
+      $ref: <foF2>
+      $ref: <hmF2>
+
+<geomagnetic_series>:
+  $is: <time_series>
+  description: "Planetary Kp/ap series whose samples retain their three-hour UTC intervals; the two scales are not independent observations"
+  <points>:
+    items:
+      $ref: <Kp>
+      $ref: <ap>
+
+<solar_irradiance_series>:
+  $is: <time_series>
+  description: "GOES XRS irradiance series with band-scoped values and quality; operational and science-quality editions remain distinct products"
+  <points>:
+    items:
+      $ref: <irradiance>
+
+<summary>:
+  description: "Common summary-output form for reported aggregates; selection patterns and analysis instructions belong to the workflow"
+  $ref: <identity>
+  $ref: <time>
+  $ref: <quality>
+  $ref: <provenance>
+  [sample_count]:
+    description: "Reported number of samples contributing to the summary, where supplied"
+    type: integer
+  $edges:
+    --derived_from--> <observation>@{producer}:{channel}
+    --derived_from--> <time_series>@{producer}:{channel}
+    --derived_from--> <summary>@{producer}:{channel}
+
+<ionospheric_summary>:
+  $is: <summary>
+  description: "Already reported ionospheric aggregates; each quantity retains its statistic, units and derivation provenance"
+  $refs: <foF2>
+  $refs: <hmF2>
+
+<solar_irradiance_summary>:
+  $is: <summary>
+  description: "Already reported XRS irradiance aggregates; this is not a flare event declaration or an aggregation implementation"
+  $refs: <irradiance>
 
 --edge--:
   abstract: true
-  description: "Connection assertion between domain records"
+  description: "Output connection assertion between domain records; workflow patterns are not embedded here"
   [basis]:
-    description: "Criterion or evidence for asserting the connection"
+    description: "Reported evidence or explanation for this output assertion, not an executable selection rule"
     type: string
   $ref: <provenance>
-
---observed_at-->:
-  $is: --edge--
-  description: "The observation refers to the target observing station"
 
 --same_event_as--:
   $is: --edge--
@@ -243,9 +396,13 @@
   $is: --edge--
   description: "The observation is selected for comparison with the target event under explicit criteria; no causal or statistical finding is asserted"
 
+--derived_from-->:
+  $is: --edge--
+  description: "The source output was computed from the target data; assert only with supplied derivation evidence and provenance"
+
 <study>:
-  description: "Provisional research-context collection; membership alone does not assert a scientific association"
+  description: "Output collection of qualified scientific records; selection patterns remain in the workflow and membership asserts no scientific association"
   $refs: <event>@{producer}:{channel}
-  $refs: <station>@{producer}:{channel}
-  $refs: <ionospheric_observation>@{producer}:{channel}
-  $refs: <geomagnetic_index>@{producer}:{channel}
+  $refs: <observation>@{producer}:{channel}
+  $refs: <time_series>@{producer}:{channel}
+  $refs: <summary>@{producer}:{channel}

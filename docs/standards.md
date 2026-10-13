@@ -17,7 +17,7 @@ Reviewed 2026-10-12. Seismosaic reuses established scientific concepts through a
 
 ## Earthquake concepts: QuakeML BED 1.2 projection
 
-Use the [QuakeML Basic Event Description 1.2 specification](https://quake.ethz.ch/quakeml/docs/REC?action=AttachFile&do=get&target=QuakeML-BED-20130214b.pdf) as the concept reference. The following paths are relative to Seismosaic's catalogue-entry `event`:
+Use the [QuakeML Basic Event Description 1.2 specification](https://quake.ethz.ch/quakeml/docs/REC?action=AttachFile&do=get&target=QuakeML-BED-20130214b.pdf) as the concept reference. The following paths are relative to Seismosaic's catalogue-entry `seismic_event`, a specialization of its generic `event` output form:
 
 | Native concept | Seismosaic projection |
 | --- | --- |
@@ -42,6 +42,7 @@ This projection omits picks, arrivals, focal mechanisms, station magnitudes and 
 | --- | --- |
 | URSI foF2, code 00 | `foF2.value`, MHz; ordinary-wave F-region critical frequency |
 | DIDBase hmF2 | `hmF2.value`, km; derived peak-density height, distinct from virtual height h'F2; confirm exact export field and method |
+| Reported observing station / URSI station code | `provenance.acquisition.station.identity`; retain the actual source identifier scheme and supplied site position |
 | SAOXML `scalerType` | Observation `quality.scaling`; `auto` becomes `automatic`, `manual` remains `manual` |
 | Characteristic QL / DL | Quantity `quality.qualifying_letter` / `quality.descriptive_letter` |
 | Algorithm/version or human scaler | Provenance at the reported scope; mapping detail pending |
@@ -60,8 +61,12 @@ Record-wide interpretation and quantity-specific edit flags are different scopes
 
 These quality paths are relative to the observation or characteristic carrying the source information. `verified_clean` is our descriptive mapping label, not a universal quality rank. A score does not by itself prove automatic or manual scaling. Special codes must not be clamped into the score range or turned into probabilities.
 
-## Cross-domain model focus
+## Output forms and cross-domain focus
 
-The shared model retains event-estimate instants, characteristic station/time context, planetary index intervals, and the provenance and quality of each. Comparison edges carry their selection basis and assertion provenance. Membership, interval overlap and catalogue identity are separate meanings.
+Common record forms are Seismosaic's output organization, not new provider standards. Observation and time-series profiles keep named quantity containers; those quantities compose shared contents while retaining their units and definitions. Series record specialization is a separately labelled local metamodel proposal, not QuakeML or SAO inheritance.
+
+GOES XRS uses a shared irradiance structure under a parameterized wavelength-band namespace. This retains band-specific values, corrections and flags without making a wavelength band a delivery channel. Product identity/version and observing satellite/instrument remain separate provenance information. See the detailed [GOES mappings](sources.md#goes-as-complementary-context).
+
+The shared model retains event-estimate instants, characteristic station/time context, planetary index intervals, and the provenance and quality of each. Output edges carry supported assertion evidence and provenance. Selection patterns, comparison windows and analysis instructions stay in the workflow layer. Membership, interval overlap, derivation and catalogue identity are separate meanings.
 
 Neither a shared `quality.status` path nor a shared UTC representation makes different source status vocabularies, spatial footprints or sampling supports equivalent. Standards alignment reduces repeated modelling within each family; scientific comparison criteria remain explicit domain decisions.

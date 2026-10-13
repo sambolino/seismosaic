@@ -2,7 +2,7 @@
 
 Seismosaic is an early semantic modelling project for seismic events, ionospheric observations and their geophysical context. It reuses the [Alertissimo metamodel](metamodel.md) while defining its own domain vocabulary.
 
-The initial work concerns how these different kinds of scientific data can be described together, with their quantities, time support, locations, quality and provenance intact. Temporal or spatial selection for comparison does not establish a physical or causal relationship.
+The initial work concerns how these different kinds of scientific output can be described together, with their quantities, time support, acquisition context, quality and provenance intact. Selection patterns and comparison windows belong to the workflow layer. Membership in the output collection does not establish a physical or causal relationship.
 
 Established domain concepts guide the model: a small QuakeML projection for seismic estimates, SAO/URSI conventions for ionospheric information, and the definitions of GFZ's official Kp/ap products. The focus is their representation together and the explicit basis for comparisons across these data families.
 
@@ -19,9 +19,11 @@ This repository starts with model declarations and documentation. The ontology i
 
 ## Initial scope
 
-The draft describes seismic catalogue entries with multiple origin and magnitude estimates, observing stations, ionogram-derived ionospheric characteristics, and geomagnetic indices. A provisional `study` root collects source-qualified records for a research comparison. Its role and name remain open for review.
+The `study` root collects generic event, observation, time-series and summary record forms. Their concrete specializations retain domain names: `seismic_event`, `ionospheric_observation`, `geomagnetic_index`, `solar_observation`, and the corresponding series. Seismic entries keep multiple origins and magnitudes. Station, satellite and instrument information is acquisition provenance rather than a compulsory station registry.
 
-USGS and EMSC supply the reviewed earthquake examples; GFZ supplies a concrete geomagnetic interval example. GIRO/DIDBase is the candidate ionospheric source, with a successful response and station coverage still to be confirmed. GOES XRS remains complementary solar context.
+Named quantities such as foF2, hmF2, Kp and ap compose shared scalar contents while retaining their definitions and units. GOES XRS irradiance uses a parameterized wavelength-band namespace. Series specialize a common `time_series` form, so the root can reference that form without listing every concrete series. This uses a separately documented local metamodel extension; it does not add runtime inheritance or a parser.
+
+USGS and EMSC supply the reviewed earthquake examples; GFZ supplies a concrete geomagnetic interval example. GIRO/DIDBase is the candidate ionospheric source, with a successful response and station coverage still to be confirmed. GOES XRS provides the solar-context declarations and a reviewed recent JSON feed; a historical science-quality archive product remains to be inspected.
 
 The short-visit work is to refine this fragment with the host, review a small number of source mappings and record unresolved questions. No runtime, ontology interpreter, API adapters, DSL, analysis pipeline or correlation result is implemented here.
 

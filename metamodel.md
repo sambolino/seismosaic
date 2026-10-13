@@ -19,6 +19,77 @@ be preserved; ordinary YAML loading that overwrites duplicate keys is insufficie
 The current implementation provides a conservative lexical index and validation,
 not a complete interpreter of all the rules documented here.
 
+## Local proposed extension: container specialization and content refinement
+
+The rules in this section are a Seismosaic documentation extension, proposed
+for reuse upstream. They are not present in the pinned Alertissimo source and
+do not imply interpreter support. The extracted upstream wording below remains
+unchanged; its edge-specific `$is` rules continue to apply to edge carriers.
+
+### Container specialization
+
+`$is: <parent>` declares a semantic kind-of relationship between instantiable
+containers. The child inherits the parent's ordered contents, reference
+directives, edge participation and metadata. The first profile supports one
+container parent and an acyclic inheritance chain. Projections such as
+`<_quantity>` are reused with `$ref`, not used as `$is` parents. Container
+inheritance and edge inheritance remain separate; a container cannot inherit
+from an edge carrier or conversely.
+
+An ordinary `$ref` or `$refs` to a parent permits its concrete descendants,
+including transitively inherited descendants, with the same cardinality and
+level-selection rules. The concrete container name is retained in the path:
+
+```text
+<time_series>:
+  <points>:
+    type: array
+
+<solar_irradiance_series>:
+  $is: <time_series>
+
+<study>:
+  $refs: <time_series>@{producer}:{channel}
+```
+
+This permits `study.solar_irradiance_series@producer:channel.points`.
+Inheritance adds no `time_series` path segment. A parent reference is a semantic
+type selection, not an instruction to rename a child record. Qualifiers retain
+their existing first-level scope.
+
+### Content composition and refinement
+
+Composition imports contents without a kind-of relationship. Inherited or
+projected contents are composed before the local additions. Matching named
+containers and fields are combined recursively in their enclosing scope;
+array `items` content is combined in the same way. Repeated `$ref`/`$refs`
+directives retain their order and meaning, rather than being overwritten as
+ordinary YAML keys. The same concept cannot acquire conflicting single and
+repeated cardinalities in one scope.
+
+A local declaration may add previously unspecified metadata to an inherited
+or imported field. For example, a shared `[value]` with `type: float` may receive
+`unit: MHz` in `<foF2>`. Repeating the same metadata is harmless. Conflicting
+types, units, cardinalities or constraints must not silently override each
+other. Descriptions may be made more specific. There is no implicit field
+deletion, last-key-wins rule or multiple-parent precedence in this profile.
+
+For a series specialization, a local `<points>: items:` section can add
+scientific quantity references while retaining the parent's array type and
+sample time/quality/provenance contents. This is content refinement; it does not
+instantiate another record for each point.
+
+### Parameterization stays distinct
+
+`<{parameter}>` still contributes a substituted namespace around its declared
+contents. It does not imply inheritance or automatic lookup of a same-named
+container definition. A dynamic GOES band namespace can share one irradiance
+structure and units across bands. Concrete quantities with different meanings
+and units can instead use explicit named containers and common projections.
+
+These rules describe output vocabulary and paths. They add no workflow pattern,
+runtime storage representation, object factory or plotting implementation.
+
 ## Levels
 
 A domain declares its level vocabulary. Levels are metadata, not path components.

@@ -7,6 +7,7 @@ Develop a small semantic model for seismic and ionospheric data using the existi
 ## Current scope
 
 - Work on domain declarations, source mapping notes and modelling decisions.
+- Model scientific output. Keep selection patterns, comparison frames and analysis instructions in the workflow layer; do not embed them in this ontology.
 - Do not add runtime classes, an ontology parser or iterator, API adapters, orchestration, a DSL or statistical analysis without an explicit change of scope.
 - Seismosaic defines its own structural root and record families; do not assume an Alertissimo Portfolio.
 - Keep source mappings distinct from the semantic vocabulary.
@@ -16,7 +17,8 @@ Develop a small semantic model for seismic and ionospheric data using the existi
 
 ## Metamodel
 
-- Follow metamodel.md. See UPSTREAM.md for its source and the one local link adjustment.
+- Follow metamodel.md. See UPSTREAM.md for its source, local link adjustment and explicitly labelled documentation extension.
+- Use composition for shared quantity contents, parameterization for semantic namespaces, and container inheritance for record-form specialization. Keep these meanings distinct.
 - The notation is ordered and YAML-like. Repeated directives and scope are meaningful. Do not round-trip ontology.yaml through an ordinary YAML loader or dumper.
 - Do not invent a metamodel import directive or change notation rules to accommodate a domain-specific modelling choice.
 - Propose changes to generic notation separately and document their upstream relationship.
