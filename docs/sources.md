@@ -11,10 +11,15 @@ The reviewed access and field choices now have [declarative endpoint and mapping
 | USGS | HTTP 200; one historical event in GeoJSON | FDSN event HTTP query | Global catalogue aggregation; use as the first earthquake mapping example |
 | EMSC | HTTP 200; one historical event in JSON | FDSN event HTTP query | Alternative event catalogue; preserve separate estimates and identifiers |
 | GFZ Kp/ap | HTTP 200; three Kp interval values | JSON service and documented Python client | Kp/ap archive is documented since 1932; retain interval and definitive/preliminary status |
-| GIRO/DIDBase | Documentation/form reachable; station listing and FastChar calls returned HTTP 504 in this review | Documented HTTP services, form and SAO Explorer | Station-dependent coverage; access and a representative response remain to be confirmed locally |
-| GOES XRS | HTTP 200; rolling JSON feed inspected | SWPC recent-data JSON; historical NCEI archive | Complementary solar X-ray context; a historical study needs a separately selected archive product |
+| GEOFON | HTTP 200; Kamchatka catalogue QuakeML | Separate FDSN event service | Seismic GFZ product, distinct from Kp/ap; source estimates remain separate |
+| GIRO/DIDBase | Station JSON and historical POST now return HTTP 200; EA653 returned characteristics | Public scaled.php form submitted programmatically; FastChar Version 1.1 text | Current station list does not establish historical operation; nine other nearby sites reported no measurements in the full demo window |
+| GOES XRS | Rolling JSON and historical GOES-18 daily NetCDF inspected | SWPC recent feed; NCEI science-quality avg1m | The fixed Kamchatka demo retrieves v2-2-1 daily archive products programmatically |
 
 No manual file-download step is proposed as the eventual workflow. A programmatic service can return JSON or text; response format alone does not determine whether access is usable.
+
+### Kamchatka follow-up, 2026-10-13
+
+The [fixed live demo](kamchatka_demo.md) supersedes the earlier GIRO and historical GOES access uncertainty for its specific routes. It retrieved 68 selected seismic catalogue entries, 288 Kp and 288 ap intervals, 4,081 EA653 ionospheric samples and 31,680 one-minute GOES points. These are counts from the inspected run, not completeness guarantees. Historical GIRO access uses POST to `scaled.php`, not guessed parameters on `getbest`. The current file's NetCDF time metadata supplies record starts; current FastChar metadata says CS=999 means manual, without asserting verified-clean status. The older review sections below retain the evidence and limits of the other routes.
 
 [Standards alignment](standards.md) distinguishes FDSN interfaces, QuakeML event representations, IAGA-endorsed index definitions and SAO/URSI ionospheric conventions. The mappings below are a small semantic projection, not a standards-conformance or lossless conversion claim.
 

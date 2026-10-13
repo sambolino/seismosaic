@@ -266,6 +266,7 @@
   $ref: <provenance>
   $edges:
     --same_event_as-- <event>@{producer}:{channel}
+    --selected_for_comparison_with--> <event>@{producer}:{channel}
 
 <seismic_event>:
   $is: <event>
@@ -323,6 +324,8 @@
   $ref: <time>
   $ref: <quality>
   $ref: <provenance>
+  $edges:
+    --selected_for_comparison_with--> <event>@{producer}:{channel}
   [cadence]:
     description: "Source-reported nominal sample spacing, where known; not a promise of gap-free data and not the value's support duration"
     type: float
@@ -394,7 +397,7 @@
 
 --selected_for_comparison_with-->:
   $is: --edge--
-  description: "The observation is selected for comparison with the target event under explicit criteria; no causal or statistical finding is asserted"
+  description: "The source event, observation or time series is selected for comparison with the target event under explicit criteria; no causal or statistical finding is asserted"
 
 --derived_from-->:
   $is: --edge--

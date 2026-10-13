@@ -18,21 +18,22 @@ endpoints:
       - Actual satellite comes from each row, not the primary URL component.
       - A directory listing error does not imply this individual feed is inaccessible.
   - id: goes.xrs.science-archive
-    status: candidate_metadata_pending
-    url: https://data.ngdc.noaa.gov/platforms/solar-space-observing-satellites/goes/goes18/l2/data/xrsf-l2-avg1m_science/2026/01/
+    status: response_reviewed
+    url: https://data.ngdc.noaa.gov/platforms/solar-space-observing-satellites/goes/goes18/l2/data/xrsf-l2-avg1m_science/2025/07/
     method: GET
     access: anonymous archive listing/file access; not a time-filtered REST endpoint
     channel: ncei-exis
     producer: noaa-ncei
     parameters: {}
     responses:
-      - {representation: NetCDF science-quality avg1m files, mapping: goes.xrs.science.pending}
-    representative_file: https://data.ngdc.noaa.gov/platforms/solar-space-observing-satellites/goes/goes18/l2/data/xrsf-l2-avg1m_science/2026/01/sci_xrsf-l2-avg1m_g18_d20260101_v2-2-1.nc
+      - {representation: NetCDF science-quality avg1m files, mapping: goes.xrs.science.netcdf}
+    representative_file: https://data.ngdc.noaa.gov/platforms/solar-space-observing-satellites/goes/goes18/l2/data/xrsf-l2-avg1m_science/2025/07/sci_xrsf-l2-avg1m_g18_d20250729_v2-2-1.nc
     constraints:
-      - Listing and filename were reviewed; data variables, time bounds and quality flags have not been inspected.
+      - The representative daily file's variables, time attributes and quality flags have now been inspected.
       - This URL is a representative directory, not a complete file-discovery contract.
       - A future workflow can retrieve files through a library; no manual-download step is proposed.
       - Read the actual file/product version; do not infer it from newer documentation.
+      - The fixed demo selects GOES-18 v2-2-1 daily products; unavailable files are failures, without fallback to another edition/version.
     documentation: https://www.ncei.noaa.gov/products/goes-r-extreme-ultraviolet-xray-irradiance
 access_constraints:
   - Preserve product edition, satellite, instrument, gaps and calibration context.

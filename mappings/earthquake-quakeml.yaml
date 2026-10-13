@@ -1,5 +1,5 @@
 id: earthquake.quakeml
-endpoints: [usgs.events, emsc.events]
+endpoints: [usgs.events, emsc.events, geofon.events]
 status: sample_reviewed
 record: seismic_event
 representation: QuakeML BED 1.2; a small projection, not a complete schema or conformance validator.

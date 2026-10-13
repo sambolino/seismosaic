@@ -39,21 +39,31 @@ profiles:
       - No provider row ID is supplied; do not manufacture identity.source_id from a timestamp.
       - Time labels and averaging duration do not establish exact interval boundaries.
       - Producer attribution must be resolved before fully qualified semantic output is claimed.
-  - id: goes.xrs.science.pending
+  - id: goes.xrs.science.netcdf
     endpoint: goes.xrs.science-archive
-    status: netcdf_metadata_pending
+    status: sample_reviewed
     record: solar_irradiance_series
     qualifiers: {producer: noaa-ncei, channel: ncei-exis}
-    unbound_targets:
-      - {target: provenance.product.version, meaning: Actual file/product version}
-      - {target: provenance.product.edition, intended_value: science_quality}
-      - {target: provenance.acquisition.platform.name, meaning: Actual satellite}
-      - {target: provenance.acquisition.instrument.name, intended_value: XRS}
-      - {target: points.time.label, meaning: Decode using actual NetCDF time units and calendar}
-      - {target: 'points.irradiance.{band}.value', unit: 'W m-2', meaning: Reported band irradiance}
-    blockers:
-      - Inspect the representative NetCDF header and values before binding variable names, missing values, flags, time scale or support bounds.
-      - Define programmatic file discovery/version selection separately; the listed example is not an archive API contract.
+    fields:
+      - {source: Global id attribute, target: provenance.product.name}
+      - {source: Version suffix of global id, target: provenance.product.version}
+      - {literal: science_quality, target: provenance.product.edition}
+      - {source: Global processing_level attribute, target: provenance.product.processing_level}
+      - {source: Global platform=g18, target: provenance.acquisition.platform.name, conversion: GOES-18}
+      - {literal: XRS, target: provenance.acquisition.instrument.name}
+    point_fields:
+      - {source: time, target: time.start, conversion: Decode actual units/calendar; inspected long_name says Record start time}
+      - {source: time, target: time.end, conversion: Start plus 60 seconds for the documented one-minute product}
+      - {literal: 60, target: time.duration, unit: s}
+      - {source: xrsa_flux, target: irradiance.xrs_a.value, unit: 'W m-2'}
+      - {source: xrsb_flux, target: irradiance.xrs_b.value, unit: 'W m-2'}
+      - {source: xrsa_flux_observed and xrsb_flux_observed, target: Band observed_value, unit: 'W m-2'}
+      - {source: xrsa_flux_electrons and xrsb_flux_electrons, target: Band electron_correction, unit: 'W m-2'}
+      - {source: Band flag/flag_excluded and electron_correction_flag, target: Band quality.flags, conversion: Retain named numeric flags; definitions in run metadata}
+      - {literal: mean, target: Band statistic}
     rules:
       - Science-quality reprocessing and the operational feed can share underlying measurements; channels do not establish independence.
-      - No historical variable layout or CF conformance is asserted here.
+      - Masked/fill values are omitted rather than converted into numeric measurements; keep support and available flags.
+      - Inspected time units are seconds since 2000-01-01 12:00:00 UTC and neglect leap seconds; do not reinterpret as J2000 TT.
+      - Validate platform, product, units, time semantics and array shapes before normalizing each file.
+      - This is an inspected product projection, not a complete NetCDF/CF validator or archive-discovery engine.

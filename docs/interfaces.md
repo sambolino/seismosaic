@@ -1,6 +1,6 @@
 # Endpoints and source mappings
 
-These files make the reviewed interfaces concrete without adding retrieval code or an ontology interpreter. They are ordinary YAML descriptions for review and a future implementation, not an executable DSL, OpenAPI specification or promise of full provider coverage. The ordered notation in `ontology.yaml` remains separate.
+These files make the reviewed interfaces concrete. They remain ordinary YAML descriptions, not an executable DSL, OpenAPI specification or promise of full provider coverage. The [fixed Kamchatka demo](kamchatka_demo.md) implements a small subset directly in Python; it does not interpret these descriptions or the ordered notation in `ontology.yaml`.
 
 `endpoints/` records provider URLs, native query parameters, formats, coverage and access constraints. `mappings/` records how returned scientific output fits the ontology. Workflow code will choose queries and perform selection or comparisons; neither layer inserts selection frames or matching rules into the ontology.
 
@@ -10,11 +10,12 @@ These files make the reviewed interfaces concrete without adding retrieval code 
 | --- | --- | --- | --- |
 | USGS | [usgs.yaml](../endpoints/usgs.yaml) | [GeoJSON](../mappings/usgs.yaml), [shared QuakeML](../mappings/earthquake-quakeml.yaml) | Catalogue summaries and returned alternative estimates |
 | EMSC | [emsc.yaml](../endpoints/emsc.yaml) | [JSON](../mappings/emsc.yaml), [shared QuakeML](../mappings/earthquake-quakeml.yaml) | Separate identifier schemes; summary depth sign; alternative estimates |
+| GEOFON | [geofon.yaml](../endpoints/geofon.yaml) | [shared QuakeML](../mappings/earthquake-quakeml.yaml) | Separate seismic catalogue product, not the GFZ Kp/ap product |
 | GFZ | [gfz.yaml](../endpoints/gfz.yaml) | [JSON](../mappings/gfz.yaml) | Aligned Kp or ap arrays and their complete three-hour intervals |
-| GIRO/DIDBase | [giro.yaml](../endpoints/giro.yaml) | [pending bindings](../mappings/giro.yaml) | Documented latest-characteristic route; actual table layout unresolved |
-| GOES XRS | [goes.yaml](../endpoints/goes.yaml) | [recent and historical profiles](../mappings/goes.yaml) | Recent JSON fields reviewed, operational producer unresolved; historical NetCDF metadata pending |
+| GIRO/DIDBase | [giro.yaml](../endpoints/giro.yaml) | [historical form](../mappings/giro-form.yaml), [pending latest-route bindings](../mappings/giro.yaml) | Historical POST and Version 1.1 table inspected; latest GET remains a separate unbound route |
+| GOES XRS | [goes.yaml](../endpoints/goes.yaml) | [recent and historical profiles](../mappings/goes.yaml) | Historical NetCDF fields/support/flags reviewed; recent-feed operational producer still unresolved |
 
-The shared QuakeML mapping takes catalogue producer, channel and URL from the selected USGS/EMSC endpoint. It retains every returned origin and magnitude, their source IDs and preference references. It does not assert that an XML publicID equals the service's lookup ID. JSON summaries and XML bulletins are alternative representations, not additional independent evidence.
+The shared QuakeML mapping takes catalogue producer, channel and URL from the selected USGS/EMSC/GEOFON endpoint. It retains every returned origin and magnitude, their source IDs and preference references. It does not assert that an XML publicID equals the service's lookup ID. JSON summaries and XML bulletins are alternative representations, not additional independent evidence.
 
 ## Reading a mapping
 
@@ -28,7 +29,7 @@ The shared QuakeML mapping takes catalogue producer, channel and URL from the se
 
 Field units are the target units declared in the ontology. A different native unit needs an explicit conversion: QuakeML depth is metres, while the model uses kilometres. GFZ's ap values retain their **2 nT scale**; they are not multiplied into a different physical quantity. GOES band limits are nm and irradiance is W m-2. Quantity containers compose common fields; no quantity inheritance is introduced here.
 
-Use the source timestamp's precision and actual time scale. Query boundaries are not record support: GFZ returns starts with three-hour support, and GOES `time_tag` labels a one-minute average whose exact bounds remain unverified. A GOES one-minute point is therefore represented in a series with `time.label` and `time.duration`, not falsely as an instantaneous reading. The mapping produces no additional summary by calculating aggregates.
+Use the source timestamp's precision and actual time scale. Query boundaries are not record support: GFZ returns starts with three-hour support. The recent GOES JSON `time_tag` remains an average label with unverified exact bounds; its mapping uses `time.label` and `time.duration`. The inspected historical NetCDF time variable explicitly reports record start time and supports complete one-minute intervals. Neither product is falsely represented as an instantaneous reading. The mapping produces no additional summary by calculating aggregates.
 
 ## Missing values, failures and provenance
 
@@ -36,7 +37,7 @@ Absent or null numeric fields produce no numeric semantic value; zero remains a 
 
 Handle HTTP no-data responses separately from transport/service failures. An empty query does not prove that no physical event occurred or that a station was operating. A failed retrieval does not become a scientific quality flag. The descriptors list representative controls; omitted provider parameters and output fields are outside this review, not declared invalid by a complete schema.
 
-Channel aliases distinguish actual routes (`usgs-fdsn`, `emsc-fdsn`, `gfz-kp-json`, `giro-fastchar`, `swpc-json`, `ncei-exis`). Protocol/version is separate metadata. Producer aliases are local identifiers with the roles stated in each profile, not provider-standard identifiers. Preserve supplied estimate authorship at estimate scope and station/platform/instrument information in acquisition provenance. Do not infer duplication, independence, identity edges or causality from qualifiers alone.
+Channel aliases distinguish actual routes (`usgs-fdsn`, `emsc-fdsn`, `geofon-fdsn`, `gfz-kp-json`, `giro-fastchar`, `giro-fastchar-form`, `swpc-json`, `ncei-exis`). Protocol/version is separate metadata. Producer aliases are local identifiers with the roles stated in each profile, not provider-standard identifiers. Preserve supplied estimate authorship at estimate scope and station/platform/instrument information in acquisition provenance. Do not infer duplication, independence, identity edges or causality from qualifiers alone.
 
 Dataset attribution belongs to the provider. The endpoint descriptions link known terms/citations; they do not turn those terms into ontology fields or make the repository licence apply to retrieved data.
 
@@ -44,4 +45,4 @@ Dataset attribution belongs to the provider. The endpoint descriptions link know
 
 On 2026-10-13, bounded anonymous requests returned HTTP 200 for the USGS/EMSC JSON and XML examples, GFZ Kp/ap and the recent GOES feed. Both event lookup responses were single Features; the bounded catalogue queries returned FeatureCollections. USGS returned one origin/magnitude; EMSC returned ten of each. GFZ returned two aligned starts, including the requested end label. GOES returned the reviewed band/correction keys, including the provider spelling `electron_contaminaton`.
 
-These checks cover representative payloads, not full schema validation, completeness or continuous access. GIRO's response remains unbound; the historical GOES listing was reviewed earlier, but the NetCDF contents have not been inspected. The next small implementation step can normalize one USGS JSON entry and one GFZ response against these descriptions, with the output inspected before adding more providers.
+These checks cover representative payloads, not full schema validation, completeness or continuous access. The subsequent Kamchatka run also inspected GEOFON QuakeML, a successful historical GIRO POST response and GOES daily NetCDF contents. Its 93 output records and separate retrieval report can now be inspected in the [live demo](kamchatka_demo.md). The latest GIRO GET profile and operational GOES producer attribution remain separate unresolved questions.
