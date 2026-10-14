@@ -1,0 +1,66 @@
+id: collisiondb.datasets.python
+endpoint: collisiondb.datasets
+status: live_sample_reviewed
+record: collision_dataset
+qualifiers: {producer: collisiondb, channel: collisiondb-api}
+selection: Each PyCollDataSet; one record per qid, not one merged record per reaction.
+fields:
+  - {source: metadata.qid, target: identity.source_id}
+  - {literal: 'collisiondb:dataset', target: identity.namespace}
+  - {literal: collisiondb, target: provenance.producer.name, basis: Curated product; not inferred publication authorship}
+  - {literal: collisiondb-api, target: provenance.channel.name}
+  - {literal: 'https://db-amdis.org/collisiondb/api/', target: provenance.channel.uri}
+  - {source: metadata.method, target: provenance.method.name}
+  - {source: metadata.time_added, target: provenance.database.added_at, conversion: Express supplied timestamp in UTC}
+  - {literal: CollisionDB, target: provenance.database.name, condition: Insertion time supplied}
+  - {source: metadata.comment, target: description}
+  - {source: metadata.unc_perc, target: uncertainty.relative_percent, unit: '%'}
+containers:
+  - target: process
+    fields:
+      - {source: metadata.reaction, target: reaction, conversion: Retain verbatim}
+      - {source: reaction.reactants, target: reactant, conversion: Keep multiplicity, stateful designation, formula/charge/isotope and state strings}
+      - {source: reaction.products, target: product, conversion: Same participant mapping}
+      - {source: metadata.process_types, target: classification, conversion: Keep each IAEA code/description and vocabulary label}
+      - {source: metadata.threshold, target: threshold.value, condition: Only if supplied}
+      - {literal: eV, target: threshold.unit, condition: Threshold supplied in the documented eV convention}
+      - {source: metadata.frame, target: energy_reference, condition: Only if supplied}
+  - target: provenance.citation
+    selection: Each metadata.refs entry
+    fields:
+      - {source: reference key, target: identity.source_id}
+      - {literal: 'collisiondb:reference', target: identity.namespace}
+      - {source: doi, target: doi}
+quantity_bindings:
+  - {data_type: cross section, target: cross_section, reviewed_id: D111118}
+  - {data_type: rate coefficient, target: rate_coefficient, reviewed_id: D110743}
+curve_fields:
+  - {source: 'metadata.columns[0].name', target: argument.name}
+  - {source: 'metadata.columns[0].units', target: argument.unit}
+  - {source: 'metadata.columns[1].name', target: name}
+  - {source: 'metadata.columns[1].units', target: unit}
+  - {source: metadata.data_from_fit, target: data_from_fit, condition: Only a reported boolean}
+  - {source: metadata.fit.func, target: fit.function}
+  - {source: metadata.fit.coeffs, target: fit.coefficient, conversion: Keep native names/numbers as entries; execute nothing}
+  - {source: metadata.fit.Elo, target: fit.validity.lower_argument}
+  - {source: metadata.fit.Ehi, target: fit.validity.upper_argument}
+  - {source: 'metadata.columns[0].units', target: fit.validity.unit, condition: Fit bounds supplied}
+points:
+  selection: Aligned dataset.x/dataset.y and the corresponding retained native row
+  fields:
+    - {source: 'dataset.x[i]', target: argument}
+    - {source: 'dataset.y[i]', target: value}
+    - {source: native colon uncertainty token, target: uncertainty, conversion: One absolute token is symmetric; two are asymmetric lower/upper magnitudes}
+rules:
+  - Preserve native units; do not relabel rate coordinate E as temperature.
+  - Do not infer a threshold from Elo or the first zero, or fit validity from the sample grid.
+  - Dataset relative uncertainty stays at dataset scope; explicit point uncertainty takes precedence at that point.
+  - Missing uncertainty is absent, not the client's zero-filled arrays. Explicit zero remains zero.
+  - Schema versions, insertion dates and archive UUIDs are not scientific revision identifiers.
+  - Mismatched arrays, unsupported tokens and non-finite values fail visibly.
+  - Differential/multidimensional tables and fit-only data are outside this two-column example.
+retain_unmapped:
+  - Native ZIP, manifest, bibliography and full metadata/table files remain in the managed cache.
+  - metadata_version and archive receipt/checksum are retained in run, outside study.
+  - from_aladdin and extra fit/quality metadata remain in the archive; full import lineage is not projected.
+  - Bibliography resolution returned HTTP 404; no publication authors/titles are fabricated from DOIs.

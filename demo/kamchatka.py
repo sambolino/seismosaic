@@ -267,10 +267,13 @@ def saved_document(output):
     return {"study": json.loads((output / "study.json").read_text())["study"], "run": report}
 
 
-def serve(output, port, reuse=False):
+def serve(output, port, reuse=False, *, run_study=None, load_saved=None, viewer_html=None):
+    # Presentation plumbing shared by the two fixed examples; no request planner.
+    run_study = run_study or run
+    load_saved = load_saved or saved_document
     state = {"status": "idle", "messages": [], "document": None, "reuse_cache": reuse}
     lock = threading.Lock()
-    state["document"] = saved_document(output)
+    state["document"] = load_saved(output)
     if state["document"] is None and (Path(output) / "run.json").exists():
         state["messages"] = ["Saved output uses an older layout. Fetch to rebuild; --reuse-cache reuses the retained source responses."]
 
@@ -280,7 +283,7 @@ def serve(output, port, reuse=False):
             with lock:
                 state["messages"].append(message)
         try:
-            document = run(output, reuse, progress)
+            document = run_study(output, reuse, progress)
             with lock:
                 state.update({"status": "done", "document": document})
         except Exception as error:
@@ -298,7 +301,7 @@ def serve(output, port, reuse=False):
 
         def do_GET(self):
             if self.path == "/":
-                self.respond(200, (HERE/"viewer.html").read_bytes(), "text/html; charset=utf-8")
+                self.respond(200, viewer_html if viewer_html is not None else (HERE/"viewer.html").read_bytes(), "text/html; charset=utf-8")
             elif self.path == "/api/status":
                 with lock:
                     body = {k: v for k, v in state.items() if k != "document"}

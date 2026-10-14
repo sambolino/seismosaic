@@ -287,3 +287,7 @@ done
 ## Next model discussion
 
 The output forms and updated paths are recorded in the ontology and model decisions. Next, confirm a bounded GIRO response and inspect the selected historical GOES product's metadata and time support. Scientific selection criteria belong to the workflow layer; the ontology retains returned values, source context and supported output connections.
+
+## CollisionDB reference inputs
+
+The [fixed oxygen example](collisiondb_demo.md) now adds CollisionDB through its official Python client. The [access profile](../endpoints/collisiondb.yaml) and [mapping](../mappings/collisiondb.yaml) describe D110743 (rate coefficient) and D111118 (cross section), both electron-impact ionization of atomic oxygen. Live client retrieval returned 50 points each, native units, DOI references and fit metadata. These are reference inputs, not timed ionospheric measurements. The rate coordinate E/eV and broader molecular-reaction coverage remain unresolved. BEAMDB, ACol and MolD are outside this addition; LXCat remains a candidate.

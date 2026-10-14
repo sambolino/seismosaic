@@ -13,6 +13,7 @@ Established domain concepts guide the model: a small QuakeML projection for seis
 - [Source notes](docs/sources.md): candidate interfaces and illustrative field mappings.
 - [Endpoints and mappings](docs/interfaces.md): declarative access profiles and source-to-output paths, with unresolved bindings labelled.
 - [Fixed live Kamchatka demo](docs/kamchatka_demo.md): historical live retrieval and an expandable HTML view of a `study`.
+- [Fixed CollisionDB reference demo](docs/collisiondb_demo.md): two oxygen datasets through the official Python client, in the same viewer.
 - [Standards alignment](docs/standards.md): reused concepts, format boundaries and projection limits.
 - [Modelling decisions](docs/model_decisions.md): the initial choices and questions still open.
 - [Upstream provenance](UPSTREAM.md): the exact Alertissimo source of the metamodel.
@@ -26,6 +27,8 @@ The `study` root collects generic event, observation, time-series and summary re
 Named quantities such as foF2, hmF2, Kp and ap compose shared scalar contents while retaining their definitions and units. GOES XRS irradiance uses a parameterized wavelength-band namespace. Series specialize a common `time_series` form, so the root can reference that form without listing every concrete series. This uses a separately documented local metamodel extension; it does not add runtime inheritance or a parser.
 
 USGS, EMSC and GEOFON supply earthquake catalogue entries; GFZ supplies Kp/ap intervals. The fixed Kamchatka demo also retrieves ionogram-derived foF2/hmF2 through GIRO's historical form and GOES-18 science-quality XRS daily products. Source coverage, missing values and product context remain explicit.
+
+The root also collects `reference_data`, specialized as `collision_dataset`. Its cross-section/rate curves compose shared table contents and retain native coordinates, units, uncertainty, citations and fit metadata. These physical reference inputs have no Earth-observation time axis; no model calculation or Kamchatka association is asserted.
 
 The short-visit work is to refine this fragment with the host, review a small number of source mappings and record unresolved questions. A small fixed-request runtime demo now tests these output declarations. There is no generic planner, ontology interpreter, DSL, statistical analysis or correlation result.
 
