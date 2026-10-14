@@ -1,6 +1,6 @@
 # Figures from the existing study
 
-The viewer adds a coordinated UTC timeline, separate CollisionDB reference curves and a coverage table. Figures are generated with Matplotlib from the existing `study` and `run` objects. No provider requests, fit evaluation, common-grid interpolation or correlation analysis are added.
+The viewer adds a coordinated UTC timeline, a geographic view, separate CollisionDB reference curves and a coverage table. Figures are generated with Matplotlib from the existing `study` and `run` objects. No provider requests, fit evaluation, common-grid interpolation or correlation analysis are added.
 
 ## Generate locally without retrieving data
 
@@ -35,6 +35,18 @@ The input must be an existing saved study. Collision curves require the X/Y layo
 
 The picture describes temporal context. It makes no statistical association, causal finding or independence claim.
 
+## Reading the geographic view
+
+The regional panel shows catalogue reports and GIRO sites; the detail panel makes the cluster of seismic reports easier to inspect. A spherical azimuthal equidistant projection centred on the recorded request anchor handles the international date line without splitting nearby sites across the page. Axes are east/north distances in kilometres, with a latitude/longitude graticule. Radial distances use the same 6371.0088 km Earth radius as the demo's selection calculation. No coastline, map tiles or additional dependency is fetched; this is a regional coverage view rather than an ellipsoidal survey.
+
+- Request rings come from the saved seismic and ionospheric radii (500 km and 3000 km in the fixed scenario), centred on the request coordinates. The returned USGS preferred-origin position has a separate star. If request coordinates are absent, the returned anchor can centre the view, but request rings are omitted rather than silently recentered.
+- Each catalogue report uses its source-preferred origin position. Reports from different agencies remain separate even when they overlap; no jitter, merging or magnitude conversion is applied. Alternative origins remain available in the underlying record.
+- GIRO sites use saved retrieval-list coordinates, with acquisition provenance as a fallback. Marker shapes distinguish returned measurements, no data reported, failed access and other/unreported outcomes. Current station-list membership does not prove historical operation. Source-wide failure and omitted-position counts remain explicit.
+- Click a marker to choose among nearby records. The expandable spatial list provides the same inspection by keyboard. Seismic selections open the scientific record; GIRO selections show the native retrieval result and any linked observation series. Empty/failed retrievals never become fabricated observations.
+- Global Kp/ap, GOES irradiance and CollisionDB reference curves are not assigned station positions on this map. Selection radii do not represent physical influence, applicability or a correlation result.
+
+Both panels are included in `figures/geography.png` and `figures/geography.svg`. The visual sidecar now uses version 2; regenerate older figures offline with the command above. Scientific output versions and saved scientific JSON remain unchanged.
+
 ## Reading the reference curves
 
 Each dataset has its own figure with native X/Y names and units, reaction, dataset ID, fit-generated status and source DOI. The rate coordinate E/eV retains its unresolved physical interpretation. X is logarithmic only when all represented coordinates are positive; Y is linear, preserving zeros.
@@ -58,5 +70,6 @@ The tests and browser checklist are supplied for the researcher to execute; they
 3. Inspect reference X/Y labels, the first zero cross-section point, uncertainties, fit domain, DOI and unresolved rate-coordinate note.
 4. Select a catalogue, station/series and reference record from the figure/table pickers. Check each against its expanded original content.
 5. Export SVG, PNG and study JSON. Check that a standalone HTML result works without network access and that a narrow browser viewport remains usable.
+6. Inspect the geographic request rings and returned-anchor star. Select overlapping catalogue markers and GIRO sites with different outcomes, then compare the inspector with the saved study/run entries. Check the keyboard spatial list and marker selection after enlargement and at a narrow viewport.
 
 Do not require a fixed total record count: provider results may change. Data retain their existing provider licences and acknowledgements, including GFZ CC BY 4.0, GIRO CC BY-NC-SA 4.0 and CollisionDB CC BY 4.0 with original DOI citations.

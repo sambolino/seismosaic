@@ -10,7 +10,7 @@ from pathlib import Path
 
 from . import model
 
-VISUAL_VERSION = 1
+VISUAL_VERSION = 2
 PANELS = [("earthquake", "Catalogue reports", "Reported magnitude\n(native scales)", "seismic"),
           ("foF2", "Ionospheric foF2", "MHz", "ionospheric"),
           ("hmF2", "Ionospheric hmF2", "km", "ionospheric"),
@@ -160,6 +160,168 @@ def anchor_time(document):
         if record.get("identity", {}).get("source_id") == identity:
             return date((model.preferred(record, "origin") or {}).get("time", {}).get("instant"))
     return None
+
+
+def coordinates(position):
+    lat, lon = position.get("latitude"), position.get("longitude")
+    if numeric(lat) and numeric(lon) and -90 <= lat <= 90 and -180 <= lon <= 180:
+        return {"latitude": lat, "longitude": lon}
+    return None
+
+
+def project(position, centre):
+    """Spherical azimuthal equidistant coordinates; the same radius as model.distance."""
+    lat, lat0 = math.radians(position["latitude"]), math.radians(centre["latitude"])
+    delta = math.radians((position["longitude"] - centre["longitude"] + 180) % 360 - 180)
+    cosine = math.sin(lat0) * math.sin(lat) + math.cos(lat0) * math.cos(lat) * math.cos(delta)
+    angle = math.acos(max(-1, min(1, cosine)))
+    if angle < 1e-12:
+        return 0., 0.
+    if math.pi - angle < 1e-8:
+        raise ValueError("Antipodal position has no unique bearing on this regional map")
+    scale = 6371.0088 * angle / math.sin(angle)
+    return scale * math.cos(lat) * math.sin(delta), scale * (math.cos(lat0) * math.sin(lat) - math.sin(lat0) * math.cos(lat) * math.cos(delta))
+
+
+def geographic_data(document):
+    """Display positions and retrieval outcomes, never manufacture observation records."""
+    entries, missing = [], {"catalogue_positions": 0, "station_positions": 0}
+    anchor = document["run"].get("anchor", {}).get("record", {})
+    actual = None
+    station_records = {}
+    for key, record, locator in records(document):
+        if key.partition("@")[0] == "seismic_event":
+            origin = model.preferred(record, "origin") or {}
+            position = coordinates(origin.get("position", {}))
+            if not position:
+                missing["catalogue_positions"] += 1
+                continue
+            is_anchor = locator["path"] == anchor.get("path") and record.get("identity", {}).get("source_id") == anchor.get("identity", {}).get("source_id")
+            if is_anchor:
+                actual = position
+            entries.append({"kind": "catalogue", "label": label(key, record) + " · " + str(record.get("identity", {}).get("source_id", "unidentified report")),
+                "source": key.partition("@")[2], "position": position, "locator": locator,
+                "status": "preferred origin", "anchor": is_anchor})
+        elif key.partition("@")[0] == "ionospheric_series":
+            site = record.get("provenance", {}).get("acquisition", {}).get("station", {})
+            code = site.get("identity", {}).get("source_id")
+            if code:
+                station_records.setdefault(code, []).append((site, locator))
+    represented = set()
+    for index, site in enumerate(document["run"].get("sources", {}).get("giro", {}).get("stations", [])):
+        code = site.get("code", "unknown site")
+        represented.add(code)
+        matches = station_records.get(code, [])
+        position = coordinates(site) or next((pos for native, _ in matches if (pos := coordinates(native.get("position", {})))), None)
+        if not position:
+            missing["station_positions"] += 1
+            continue
+        entries.append({"kind": "station", "label": "GIRO " + code, "source": "giro", "position": position,
+            "status": site.get("status", "not_reported"), "locators": [locator for _, locator in matches],
+            "run_locator": {"station_index": index}, "error": site.get("error")})
+    for code, matches in station_records.items():
+        if code in represented:
+            continue
+        position = next((pos for native, _ in matches if (pos := coordinates(native.get("position", {})))), None)
+        if position:
+            entries.append({"kind": "station", "label": "GIRO " + code, "source": "giro", "position": position,
+                "status": "record_present_outcome_unreported", "locators": [locator for _, locator in matches]})
+        else:
+            missing["station_positions"] += 1
+    request = document["run"].get("request", {})
+    requested_centre = coordinates(request.get("anchor", {}))
+    centre = requested_centre or actual
+    rings = []
+    if requested_centre:
+        for family in ["seismic", "ionospheric"]:
+            radius = request.get(family, {}).get("radius_km")
+            if numeric(radius) and 0 < radius < math.pi * 6371.0088:
+                rings.append({"family": family, "radius_km": radius})
+    return {"centre": centre, "centre_basis": "request" if requested_centre else "returned anchor", "rings": rings,
+            "entries": entries, "missing": missing, "giro_status": document["run"].get("sources", {}).get("giro", {}).get("status", "not_reported")}
+
+
+def draw_geography(document, output, plt):
+    data = geographic_data(document)
+    if not data["centre"]:
+        return None
+    centre = data["centre"]
+    located, antipodes = [], 0
+    for index, entry in enumerate(data["entries"]):
+        try:
+            x, y = project(entry["position"], centre)
+        except ValueError:
+            antipodes += 1
+            continue
+        located.append((index, entry, x, y))
+    extent_km = max([1000, *[ring["radius_km"] for ring in data["rings"]], *[max(abs(x), abs(y)) for _, _, x, y in located]]) * 1.12
+    seismic_radius = next((ring["radius_km"] for ring in data["rings"] if ring["family"] == "seismic"), None)
+    detail_extent = max([seismic_radius or 500, *[max(abs(x), abs(y)) for _, entry, x, y in located if entry["kind"] == "catalogue"]]) * 1.12
+    fig, axes = plt.subplots(1, 2, figsize=(13, 7.7))
+    fig.subplots_adjust(left=.08, right=.97, top=.89, bottom=.31, wspace=.24)
+    palette, hotspots = {}, []
+    for ax, limit, title in zip(axes, [extent_km, detail_extent], ["Regional coverage", "Catalogue detail"]):
+        ax.set_xlim(-limit, limit)
+        ax.set_ylim(-limit, limit)
+        ax.set_aspect("equal", adjustable="box")
+        ax.set_title(title, loc="left", fontsize=11)
+        ax.set_xlabel("East / km", fontsize=9)
+        ax.set_ylabel("North / km", fontsize=9)
+        ax.tick_params(labelsize=8)
+        ax.grid(color="#edf0f3", linewidth=.5)
+        # A geographic graticule provides orientation without a basemap request.
+        for latitude in range(-80, 81, 10):
+            xy = [project({"latitude": latitude, "longitude": centre["longitude"] + offset}, centre) for offset in range(-85, 86)]
+            ax.plot(*zip(*xy), color="#bfcbd4", linewidth=.5, zorder=0)
+            x, y = project({"latitude": latitude, "longitude": centre["longitude"]}, centre)
+            if abs(y) < limit:
+                ax.text(0, y, str(abs(latitude)) + "°" + ("N" if latitude >= 0 else "S"), fontsize=7, color="#657387")
+        for offset in range(-80, 81, 10):
+            longitude = (centre["longitude"] + offset + 180) % 360 - 180
+            xy = [project({"latitude": latitude, "longitude": longitude}, centre) for latitude in range(-80, 81)]
+            ax.plot(*zip(*xy), color="#bfcbd4", linewidth=.5, zorder=0)
+            x, y = project({"latitude": centre["latitude"], "longitude": longitude}, centre)
+            if abs(x) < limit and abs(y) < limit:
+                ax.text(x, y, f"{abs(longitude):.1f}°" + ("E" if longitude >= 0 else "W"), fontsize=7, color="#657387")
+        for ring in data["rings"]:
+            radius = ring["radius_km"]
+            if radius <= limit:
+                ax.add_patch(plt.Circle((0, 0), radius, fill=False, linestyle="--", linewidth=1,
+                    edgecolor="#b87332" if ring["family"] == "seismic" else "#798ca2", label=ring["family"] + f" request · {radius:g} km"))
+        ax.plot(0, 0, marker="+", color="#333333", markersize=10, linestyle="none", label=data["centre_basis"] + " centre", zorder=4)
+        for index, entry, x, y in located:
+            if abs(x) > limit or abs(y) > limit:
+                continue
+            if entry["kind"] == "catalogue":
+                colour = palette.setdefault(entry["source"], COLOURS[len(palette) % len(COLOURS)])
+                marker, size, description, face = "o", 34, entry["source"], "none"
+                if entry.get("anchor"):
+                    marker, size, description, face = "*", 145, "Returned USGS anchor", colour
+            else:
+                status = entry["status"]
+                marker, colour = {"ok": ("^", "#126b67"), "no_data_reported": ("s", "#798ca2"), "failed": ("X", "#a05458")}.get(status, ("D", "#9061a0"))
+                size, description, face = 55, "GIRO · " + status.replace("_", " "), colour if status in ["ok", "failed"] else "none"
+            ax.scatter([x], [y], marker=marker, s=size, facecolors=face, edgecolors=colour, linewidths=1.1, label=description, zorder=5)
+            if entry["kind"] == "station":
+                ax.annotate(entry["label"].removeprefix("GIRO "), (x, y), xytext=(5, 5), textcoords="offset points", fontsize=8)
+            hotspots.append((ax, index, x, y))
+        handles, labels = ax.get_legend_handles_labels()
+        unique = dict(zip(labels, handles))
+        ax.legend(unique.values(), unique.keys(), loc="upper left", bbox_to_anchor=(0, -.13), fontsize=7, ncol=2, frameon=False)
+    fig.suptitle("Kamchatka study · geographic selection and returned records", fontsize=13, x=.08, ha="left")
+    fig.text(.08, .018, "Spherical azimuthal equidistant projection · radius 6371.0088 km · no basemap or network tiles\nUSGS / EMSC / GEOFON · GIRO: doi:10.5047/eps.2011.03.001 (CC BY-NC-SA 4.0); station IDs beside markers\nRequest rings show selection, not physical influence. GIRO retrieval outcomes do not establish historical operation or a physical null.", fontsize=8, color="#657387")
+    try:
+        fig.canvas.draw()
+        width, height = fig.get_size_inches() * fig.dpi
+        hit_targets = []
+        for ax, index, x, y in hotspots:
+            px, py = ax.transData.transform((x, y))
+            hit_targets.append({"entry": index, "x": float(px / width), "y": float(1 - py / height)})
+        files = figure_files(fig, output, "geography")
+    finally:
+        plt.close(fig)
+    return {"title": "Geographic context", "files": files, "locators": [], "spatial_entries": data["entries"], "hotspots": hit_targets,
+        "caption": "Preferred-origin positions are shown per catalogue report, without merging agencies, plotting all alternative origins, magnitude conversion or marker jitter. Overlapping reports remain distinct; click a marker to choose among nearby records, or use the spatial list. Rings are centred on the recorded request anchor; the star is the returned USGS preferred origin. Radial distances follow the demo's spherical distance convention; the map is not an ellipsoidal survey. Missing positions omitted: " + str(data["missing"]) + "; antipodal positions omitted: " + str(antipodes) + ". GIRO source status: " + data["giro_status"] + ". Global Kp/ap, solar measurements and CollisionDB references have no station position on this map."}
 
 
 def figure_files(figure, output, name):
@@ -319,6 +481,12 @@ def build(document, output):
     timeline = draw_timeline(document, groups, output, plt, mdates, LineCollection)
     if timeline:
         figures.append(timeline)
+    try:
+        geography = draw_geography(document, output, plt)
+        if geography:
+            figures.append(geography)
+    except (ValueError, KeyError, TypeError) as error:
+        figures.append({"title": "Geographic context", "error": str(error), "locators": []})
     for key, record, locator in records(document):
         if key.partition("@")[0] == "collision_dataset":
             try:
