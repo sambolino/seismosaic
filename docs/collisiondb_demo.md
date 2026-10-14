@@ -53,3 +53,7 @@ Data are CC BY 4.0; retain original citations. See the [paper](https://doi.org/1
 ## Follow-up layout and combined run
 
 `run.output_version=2` marks the axis layout for this standalone example. Existing source archives can rebuild it with `--once --reuse-cache`; old normalized snapshots are declined until rebuilt. The combined Kamchatka layout is version 3 and has its own reference cache. Run `python -m demo.kamchatka --port 8765` to retrieve both the earthquake/geophysical data and these reference inputs in one study.
+
+## Figures and input coverage
+
+The viewer now includes [offline study figures](visuals.md): temporal context when present, separate reference curves, input coverage and record inspection links. New runs create PNG/SVG exports; existing output can be refreshed with `python -m demo.visuals --output build/collisiondb` without source requests. Scientific records and source/run semantics remain unchanged. Visualization metadata has its own sidecar version/fingerprint.

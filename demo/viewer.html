@@ -27,6 +27,16 @@
   .hint{font:11px system-ui,sans-serif;color:var(--muted);margin-left:12px}.more{font-size:12px;padding:4px 10px;margin:7px 0}
   #empty{padding:60px 20px;text-align:center}#run-tree{max-height:620px;overflow:auto;margin-top:12px}
   .report-toggle{border-top:1px solid var(--line);margin-top:20px;padding-top:14px}.report-toggle>summary{cursor:pointer;font-weight:600}
+  #visuals{margin-bottom:24px;border-bottom:1px solid var(--line);padding-bottom:24px}
+  .visual-note{font-size:13px}.figure-card{border:1px solid var(--line);border-radius:7px;margin:18px 0;padding:14px}
+  .figure-card h3{font-size:15px;margin:0 0 8px}.figure-frame{overflow:auto;background:white;border:1px solid #edf0f3}.figure-frame.enlarged{max-height:1000px}
+  .figure-frame img{display:block;width:100%;height:auto}.figure-frame.enlarged img{width:180%;max-width:none}
+  .figure-tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}.figure-tools a{border:1px solid var(--line);padding:7px 12px;border-radius:5px;text-decoration:none;font-size:13px}
+  .figure-tools button,.figure-tools select{font:inherit;font-size:13px;padding:7px 10px}.figure-tools select{min-width:0;max-width:100%;width:100%}
+  .figure-tools label{flex:1 1 260px}.figure-caption{font-size:12px}.coverage-scroll{overflow:auto}.coverage-table{border-collapse:collapse;width:100%;font-size:12px;margin:12px 0}
+  .coverage-table th,.coverage-table td{text-align:left;vertical-align:top;border-bottom:1px solid var(--line);padding:9px;min-width:85px}
+  .coverage-table th{color:var(--muted);font-weight:600}.coverage-table td:first-child{min-width:180px;max-width:310px;overflow-wrap:anywhere}
+  #inspection{border:1px solid var(--line);padding:12px;margin:18px 0;border-radius:6px}#inspection>summary{cursor:pointer;font-weight:600}#inspection .tree{max-height:650px;overflow:auto;margin-top:12px}
   footer{font-size:12px;color:var(--muted);padding-top:0}a{color:var(--accent)}
   @media(max-width:800px){header,main,footer{padding:20px}.grid{grid-template-columns:1fr}aside{position:static}h1{font-size:26px}.children{margin-left:12px!important}}
 </style>
@@ -51,6 +61,8 @@
   <section class="panel">
     <div class="tree-head"><div><h2>study</h2><p>Qualified records · expandable JSON view</p></div><span id="record-count" class="hint"></span></div>
     <div id="empty"><h2>Ready for one fixed experiment</h2><p id="empty-description">Fetch the catalogues and historical geophysical products,<br>then inspect the output here. Source failures remain visible.</p></div>
+    <section id="visuals" hidden aria-label="Scientific figures and input coverage"></section>
+    <details id="inspection" hidden><summary id="inspection-title">Selected source record</summary><div id="inspection-tree" class="tree"></div></details>
     <div id="study-tree" class="tree"></div>
     <details class="report-toggle"><summary>Run details: requests, access results and native flag definitions</summary><p>Workflow and retrieval information is separate from the scientific study.</p><div id="run-tree" class="tree"></div></details>
   </section>
@@ -163,6 +175,54 @@ function render(document){
   $('sources').replaceChildren(...Object.entries(document.run.sources).map(([key,source])=>coverage(key,source)));
   $('when').textContent='Run finished '+document.run.finished_at+' · '+document.run.status+(document.run.reuse_cache?' · cache reuse enabled':'');
   $('record-count').textContent=document.run.record_count+' records';
+  $('inspection').hidden=true;$('inspection').open=false;renderVisuals(document.visuals);
+}
+function element(tag,text,className){const item=document.createElement(tag);if(text!==undefined)item.textContent=text;if(className)item.className=className;return item;}
+function recordFor(locator){
+  const key=locator.path.replace(/^study\./,''),items=loaded.study[key]||[];
+  const record=locator.identity?.source_id?items.find(r=>r.identity?.source_id===locator.identity.source_id):items[locator.index];
+  return {key,record};
+}
+function inspectRecord(locator){
+  const {key,record}=recordFor(locator);if(!record)return;
+  $('inspection-title').textContent=key+(record.identity?.source_id?' · '+record.identity.source_id:'');
+  $('inspection-tree').replaceChildren(node(key,record));$('inspection').hidden=false;$('inspection').open=true;$('inspection').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function recordPicker(locators){
+  const label=element('label','Inspect source record '),select=element('select');select.setAttribute('aria-label','Inspect source record');
+  select.append(element('option','Choose a record…'));select.options[0].value='';
+  locators.forEach((locator,i)=>{const {key,record}=recordFor(locator);if(!record)return;const title=record.identity?.source_id||record.provenance?.product?.name||record.time?.start||'record '+(locator.index+1);const option=element('option',key+' · '+title);option.value=String(i);select.append(option);});
+  select.addEventListener('change',()=>{if(select.value!=='')inspectRecord(locators[Number(select.value)]);});label.append(select);return label;
+}
+function selectionText(selection){
+  if(!selection)return 'Not specified';
+  const parts=[];if(selection.start||selection.end)parts.push((selection.start||'?')+' → '+(selection.end||'?'));
+  if(selection.pks)parts.push('IDs '+selection.pks.map(id=>'D'+id).join(', '));
+  if(selection.radius_km!==undefined)parts.push(selection.radius_km+' km');if(selection.min_magnitude!==undefined)parts.push('M ≥ '+selection.min_magnitude);return parts.join(' · ')||JSON.stringify(selection);
+}
+function renderVisuals(visuals){
+  const host=$('visuals');host.hidden=false;host.replaceChildren(element('h2','Figures from this study'));
+  if(!visuals){host.append(element('p','Build figures from saved JSON with python -m demo.visuals --output build/kamchatka (or build/collisiondb). No source requests are made.','visual-note'));return;}
+  if(visuals.status==='failed'){host.append(element('p','Figure generation failed: '+visuals.error+'. Scientific records remain available below.','visual-note'));return;}
+  host.append(element('p','Saved output · figures generated '+visuals.generated_at+' · '+visuals.status,'visual-note'));
+  (visuals.notes||[]).forEach(note=>host.append(element('p',note,'visual-note')));
+  for(const figure of visuals.figures||[]){
+    const card=element('article',undefined,'figure-card');card.append(element('h3',figure.title));
+    if(figure.error){card.append(element('p',figure.error,'visual-note'));if(figure.locators?.length)card.append(recordPicker(figure.locators));host.append(card);continue;}
+    const frame=element('div',undefined,'figure-frame'),image=element('img');image.src='data:image/png;base64,'+figure.files.png.base64;image.alt=figure.title+'. '+figure.caption;image.loading='lazy';frame.append(image);card.append(frame);
+    const tools=element('div',undefined,'figure-tools'),zoom=element('button','Enlarge');zoom.addEventListener('click',()=>{const on=frame.classList.toggle('enlarged');zoom.textContent=on?'Fit width':'Enlarge';zoom.setAttribute('aria-pressed',String(on));});zoom.setAttribute('aria-pressed','false');tools.append(zoom);
+    for(const format of ['svg','png']){const file=figure.files[format],link=element('a','Download '+format.toUpperCase());link.href='data:'+(format==='svg'?'image/svg+xml':'image/png')+';base64,'+file.base64;link.download=file.filename;tools.append(link);}
+    if(figure.locators?.length)tools.append(recordPicker(figure.locators));card.append(tools,element('p',figure.caption,'figure-caption'));
+    if(figure.omissions?.length)card.append(element('p',figure.omissions.map(item=>item.panel+': '+item.missing_or_invalid_time+' missing values/times; '+item.nonpositive_on_log_axis+' nonpositive values omitted from logarithmic display').join(' · '),'figure-caption'));
+    if(figure.citations?.length)card.append(element('p','Source DOI: '+figure.citations.join(' · '),'figure-caption'));host.append(card);
+  }
+  host.append(element('h2','Coverage and reference inputs'));
+  const scroll=element('div',undefined,'coverage-scroll'),table=element('table',undefined,'coverage-table'),head=element('thead'),headers=element('tr');
+  ['Source / qualified group','Requested selection','Returned temporal extent','Records','Samples','Samples with quality metadata','Retrieval status'].forEach(text=>headers.append(element('th',text)));head.append(headers);table.append(head);
+  const body=element('tbody');
+  for(const row of visuals.coverage||[]){const tr=element('tr'),first=element('td',row.label);if(row.locators?.length)first.append(recordPicker(row.locators));tr.append(first);
+    const values=[selectionText(row.requested),row.returned?row.returned.join(' → '):row.source==='collisiondb'?'Reference data; no observation time':'No returned temporal extent',row.records,row.samples,row.quality_samples,row.status+(row.error?' · '+row.error:'')];values.forEach(value=>tr.append(element('td',String(value))));body.append(tr);}
+  table.append(body);scroll.append(table);host.append(scroll);
 }
 async function read(path){const response=await fetch(path,{cache:'no-store'});if(!response.ok)throw new Error('HTTP '+response.status+' from '+path);return response.json();}
 async function poll(){

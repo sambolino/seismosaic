@@ -251,15 +251,25 @@ def run(output, reuse=False, progress=print):
                                       and not reference_report.get("missing_ids")) else "partial"
     report["record_count"] = sum(len(records) for records in study.values())
     document = {"study": study, "run": report}
+    progress("Building figures from the assembled study; no additional source requests")
     save(document, output)
     progress("Finished: " + report["status"] + "; " + str(report["record_count"]) + " records")
     return document
 
 
-def save(document, output):
+def save(document, output, *, write_science=True):
+    from . import visuals
+    if write_science:
+        (output / "study.json").write_text(json.dumps({"study": document["study"]}, ensure_ascii=False, allow_nan=False, indent=2), encoding="utf-8")
+        (output / "run.json").write_text(json.dumps(document["run"], ensure_ascii=False, allow_nan=False, indent=2), encoding="utf-8")
+    try:
+        document["visuals"] = visuals.build(document, output / "figures")
+    except Exception as error:
+        # A presentation failure must leave successfully retrieved data inspectable.
+        document["visuals"] = {"version": visuals.VISUAL_VERSION, "status": "failed",
+                               "input_sha256": visuals.digest(document), "error": str(error)}
+    (output / "visuals.json").write_text(json.dumps(document["visuals"], ensure_ascii=False, allow_nan=False), encoding="utf-8")
     compact = json.dumps(document, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
-    (output / "study.json").write_text(json.dumps({"study": document["study"]}, ensure_ascii=False, allow_nan=False, indent=2), encoding="utf-8")
-    (output / "run.json").write_text(json.dumps(document["run"], ensure_ascii=False, allow_nan=False, indent=2), encoding="utf-8")
     embedded = compact.replace("<", "\\u003c").replace("&", "\\u0026")
     template = (HERE / "viewer.html").read_text(encoding="utf-8")
     (output / "index.html").write_text(template.replace("/*SNAPSHOT*/null", embedded), encoding="utf-8")
@@ -273,7 +283,8 @@ def saved_document(output):
     report = json.loads((output / "run.json").read_text())
     if report.get("output_version") != OUTPUT_VERSION:
         return None
-    return {"study": json.loads((output / "study.json").read_text())["study"], "run": report}
+    from . import visuals
+    return visuals.load({"study": json.loads((output / "study.json").read_text())["study"], "run": report}, output)
 
 
 def serve(output, port, reuse=False, *, run_study=None, load_saved=None, viewer_html=None):

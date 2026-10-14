@@ -14,6 +14,7 @@ Established domain concepts guide the model: a small QuakeML projection for seis
 - [Endpoints and mappings](docs/interfaces.md): declarative access profiles and source-to-output paths, with unresolved bindings labelled.
 - [Fixed live Kamchatka demo](docs/kamchatka_demo.md): historical live retrieval and an expandable HTML view of a `study`.
 - [Fixed CollisionDB reference demo](docs/collisiondb_demo.md): two oxygen datasets through the official Python client, in the same viewer.
+- [Study figures](docs/visuals.md): UTC context panels, native reference curves, coverage and links to underlying records.
 - [Standards alignment](docs/standards.md): reused concepts, format boundaries and projection limits.
 - [Modelling decisions](docs/model_decisions.md): the initial choices and questions still open.
 - [Upstream provenance](UPSTREAM.md): the exact Alertissimo source of the metamodel.
