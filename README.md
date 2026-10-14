@@ -1,42 +1,69 @@
 # Seismosaic
 
-Seismosaic is an early semantic modelling project for seismic events, ionospheric observations and their geophysical context. It reuses the [Alertissimo metamodel](metamodel.md) while defining its own domain vocabulary.
+Seismosaic brings earthquake catalogue entries, ionospheric observations, geomagnetic indices and solar measurements into a shared semantic model. It reuses the [Alertissimo metamodel](metamodel.md) and defines a geophysical vocabulary that preserves each source's quantities, temporal support, units, quality and provenance.
 
-The initial work concerns how these different kinds of scientific output can be described together, with their quantities, time support, acquisition context, quality and provenance intact. Selection patterns and comparison windows belong to the workflow layer. Membership in the output collection does not establish a physical or causal relationship.
+The project combines a draft ontology, documented source interfaces and a working prototype with fixed requests. A `study` collects heterogeneous scientific records for inspection and comparison. Selection rules and analysis belong to the workflow layer; collection membership and proximity in time or space do not establish correlation or causation.
 
-Established domain concepts guide the model: a small QuakeML projection for seismic estimates, SAO/URSI conventions for ionospheric information, and the definitions of GFZ's official Kp/ap products. The focus is their representation together and the explicit basis for comparisons across these data families.
+## A working example: Kamchatka
 
-## Start here
+The [Kamchatka demo](docs/kamchatka_demo.md) builds a study around the magnitude 8.8 earthquake of 29 July 2025. It retrieves historical data through the providers' programmatic access routes and presents the output in an expandable, JSON-like browser view.
 
-- [ontology.yaml](ontology.yaml): a small draft domain model for discussion.
-- [metamodel.md](metamodel.md): the reused notation and composition specification.
-- [Source notes](docs/sources.md): candidate interfaces and illustrative field mappings.
-- [Endpoints and mappings](docs/interfaces.md): declarative access profiles and source-to-output paths, with unresolved bindings labelled.
-- [Fixed live Kamchatka demo](docs/kamchatka_demo.md): historical live retrieval and an expandable HTML view of a `study`.
-- [Fixed CollisionDB reference demo](docs/collisiondb_demo.md): two oxygen datasets through the official Python client, in the same viewer.
-- [Study figures](docs/visuals.md): UTC context panels, native reference curves, coverage and links to underlying records.
-- [Standards alignment](docs/standards.md): reused concepts, format boundaries and projection limits.
-- [Modelling decisions](docs/model_decisions.md): the initial choices and questions still open.
-- [Upstream provenance](UPSTREAM.md): the exact Alertissimo source of the metamodel.
+| Source | Data represented |
+| --- | --- |
+| USGS, EMSC and GFZ GEOFON | Earthquake catalogue reports with origin and magnitude estimates |
+| GIRO/DIDBase | Ionogram-derived foF2 and hmF2: F2-layer critical frequency and peak height |
+| GFZ | Kp and ap geomagnetic activity indices over three-hour intervals |
+| NOAA GOES-18 | X-ray Sensor (XRS) irradiance in two wavelength bands |
+| IAEA CollisionDB | Two oxygen electron-impact ionization reference datasets: cross-sections and rate coefficients |
 
-This repository starts with model declarations, endpoint/mapping descriptions and documentation. The ontology is ordered YAML-like notation with meaningful repeated directives. It is not an ordinary YAML configuration file. The separate `endpoints/` and `mappings/` files use ordinary YAML; they describe reviewed interfaces without implementing an adapter or mapping interpreter.
+Each source has its own retrieval result. Missing values, gaps, unavailable stations and partial responses remain visible. Live results may change as providers revise their products; retained responses support replay.
 
-## Initial scope
+The [study visuals](docs/visuals.md) provide an example of using the semantic output:
 
-The `study` root collects generic event, observation, time-series and summary record forms. Their concrete specializations retain domain names: `seismic_event`, `ionospheric_observation`, `geomagnetic_index`, `solar_observation`, and the corresponding series. Seismic entries keep multiple origins, each containing its associated magnitudes. Missing associations remain explicit, while event and estimate creation metadata retain their own scope. Station, satellite and instrument information is acquisition provenance rather than a compulsory station registry.
+- Coordinated UTC panels show earthquake reports, foF2/hmF2, Kp/ap and GOES XRS, retaining their separate units and temporal support.
+- Separate CollisionDB curves show native X/Y coordinates, reported uncertainties, fit domains and citations.
+- A coverage table and source-record pickers connect the figures to the underlying records. PNG and SVG exports support reuse outside the viewer.
 
-Named quantities such as foF2, hmF2, Kp and ap compose shared scalar contents while retaining their definitions and units. GOES XRS irradiance uses a parameterized wavelength-band namespace. Series specialize a common `time_series` form, so the root can reference that form without listing every concrete series. This uses a separately documented local metamodel extension; it does not add runtime inheritance or a parser.
+Figures can be regenerated from a saved study without provider requests. They show the retrieved context, without interpolation across gaps or a computed correlation result.
 
-USGS, EMSC and GEOFON supply earthquake catalogue entries; GFZ supplies Kp/ap intervals. The fixed Kamchatka demo also retrieves ionogram-derived foF2/hmF2 through GIRO's historical form and GOES-18 science-quality XRS daily products. Source coverage, missing values and product context remain explicit.
+### Where collisional data fits
 
-The root also collects `reference_data`, specialized as `collision_dataset`. Its cross-section/rate curves compose shared table contents, declare X/Y axes and retain native coordinates, units, uncertainty, citations and fit metadata. The fixed Kamchatka run collects these reference inputs alongside the event and geophysical records, with separate source results. These physical reference inputs have no Earth-observation time axis; no model calculation or Kamchatka association is asserted.
+CollisionDB data is included provisionally as physical reference material. It is **not yet correlated with the earthquake, ionospheric or space-weather observations**, and its presence in a study does not mean a physical model has used it.
 
-The short-visit work is to refine this fragment with the host, review a small number of source mappings and record unresolved questions. A small fixed-request runtime demo now tests these output declarations. There is no generic planner, ontology interpreter, DSL, statistical analysis or correlation result.
+These curves describe a collision process as a function of a native coordinate, rather than an Earth observation at a time and place. Connecting them to the observations would require a specified physical model, appropriate atmospheric inputs and documented derivation of its outputs. That calculation is not implemented. The [standalone reference demo](docs/collisiondb_demo.md) also retrieves the same datasets through the official `pycollisiondb` client.
+
+## The semantic model
+
+The model follows established source concepts: a focused QuakeML projection for seismic estimates, SAO/URSI conventions for ionospheric characteristics, and the definitions of GFZ's Kp/ap products. [Standards alignment](docs/standards.md) documents the boundaries of these projections.
+
+The `study` root collects event, observation, time-series, summary and reference-data record forms. Concrete specializations retain domain names such as `seismic_event`, `ionospheric_observation`, `geomagnetic_index` and `solar_observation`.
+
+- Seismic entries retain multiple origins, with associated magnitudes nested under each origin. Missing or unresolved associations remain explicit. Preferred origin and magnitude choices are independent, and creation metadata stays at its reported event or estimate scope.
+- Named quantities such as foF2, hmF2, Kp and ap compose shared scalar contents while retaining their definitions and units. GOES XRS uses a parameterized wavelength-band namespace.
+- Concrete series specialize `time_series`, allowing a study to reference a common series form. Container inheritance is an explicit local metamodel extension.
+- Station, satellite and instrument details describe acquisition provenance. Producer and delivery-channel qualifiers distinguish scientific responsibility from the route through which data arrived.
+- Collision datasets specialize `reference_data`; their tables declare X/Y axes and preserve native coordinates, units, uncertainty, citations and fit metadata. They have no Earth-observation time axis.
+
+The ontology is a draft declaration of scientific output. The fixed demos implement small provider projections; they do not interpret the ontology or provide a generic workflow planner or analysis engine.
+
+## Repository guide
+
+| File or directory | Purpose |
+| --- | --- |
+| [ontology.yaml](ontology.yaml) | Draft domain vocabulary and output structure |
+| [metamodel.md](metamodel.md) | Notation, composition and specialization rules |
+| [endpoints/](endpoints/) and [mappings/](mappings/) | Declarative access profiles and source-to-output paths |
+| [demo/](demo/) | Fixed retrieval scenarios, saved-output handling and browser viewer |
+| [Source notes](docs/sources.md) and [interfaces](docs/interfaces.md) | Reviewed access routes, constraints and unresolved bindings |
+| [Modelling decisions](docs/model_decisions.md) | Design choices and open questions |
+| [UPSTREAM.md](UPSTREAM.md) | Alertissimo metamodel provenance and local extensions |
+
+The ontology uses ordered YAML-like notation: repeated directives and scope are meaningful, so it must not be round-tripped through an ordinary YAML loader. Endpoint and mapping files use ordinary YAML and are documentation, not an executable mapping language.
 
 ## Development
 
-Edit the ontology and accompanying notes together. Keep changes to the shared metamodel explicit and separate from domain modelling. The [contributor instructions](AGENTS.md) define the current project scope.
+Keep ontology declarations, source mappings and accompanying notes consistent. Document shared metamodel changes separately from domain choices. The [contributor instructions](AGENTS.md) define the current scope; the demo guides provide setup, run and local validation commands.
 
 ## Licence
 
-BSD 3-Clause; see [LICENCE](LICENCE). The metamodel is derived from Alertissimo. Scientific datasets retain their providers' own licences and acknowledgement requirements.
+BSD 3-Clause; see [LICENCE](LICENCE). The metamodel is derived from Alertissimo. Scientific datasets retain their providers' own licences, citations and acknowledgement requirements.
