@@ -15,7 +15,7 @@ These files make the reviewed interfaces concrete. They remain ordinary YAML des
 | GIRO/DIDBase | [giro.yaml](../endpoints/giro.yaml) | [historical form](../mappings/giro-form.yaml), [pending latest-route bindings](../mappings/giro.yaml) | Historical POST and Version 1.1 table inspected; latest GET remains a separate unbound route |
 | GOES XRS | [goes.yaml](../endpoints/goes.yaml) | [recent and historical profiles](../mappings/goes.yaml) | Historical NetCDF fields/support/flags reviewed; recent-feed operational producer still unresolved |
 
-The shared QuakeML mapping takes catalogue producer, channel and URL from the selected USGS/EMSC/GEOFON endpoint. It retains every returned origin and magnitude, their source IDs and preference references. It does not assert that an XML publicID equals the service's lookup ID. JSON summaries and XML bulletins are alternative representations, not additional independent evidence.
+The shared QuakeML mapping takes catalogue producer, channel and URL from the selected USGS/EMSC/GEOFON endpoint. It nests magnitudes under their explicitly associated origins while retaining their own IDs, metadata and event-wide preferences. Missing/unresolved origin associations use `unassociated_magnitude`; JSON summary preference alone does not establish association. All six CreationInfo fields are retained independently at each reported resource scope. An XML publicID is not assumed equal to a service lookup ID. JSON summaries and XML bulletins are alternative representations, not additional independent evidence.
 
 ## Reading a mapping
 

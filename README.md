@@ -21,7 +21,7 @@ This repository starts with model declarations, endpoint/mapping descriptions an
 
 ## Initial scope
 
-The `study` root collects generic event, observation, time-series and summary record forms. Their concrete specializations retain domain names: `seismic_event`, `ionospheric_observation`, `geomagnetic_index`, `solar_observation`, and the corresponding series. Seismic entries keep multiple origins and magnitudes. Station, satellite and instrument information is acquisition provenance rather than a compulsory station registry.
+The `study` root collects generic event, observation, time-series and summary record forms. Their concrete specializations retain domain names: `seismic_event`, `ionospheric_observation`, `geomagnetic_index`, `solar_observation`, and the corresponding series. Seismic entries keep multiple origins, each containing its associated magnitudes. Missing associations remain explicit, while event and estimate creation metadata retain their own scope. Station, satellite and instrument information is acquisition provenance rather than a compulsory station registry.
 
 Named quantities such as foF2, hmF2, Kp and ap compose shared scalar contents while retaining their definitions and units. GOES XRS irradiance uses a parameterized wavelength-band namespace. Series specialize a common `time_series` form, so the root can reference that form without listing every concrete series. This uses a separately documented local metamodel extension; it does not add runtime inheritance or a parser.
 

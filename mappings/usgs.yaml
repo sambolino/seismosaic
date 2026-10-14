@@ -27,7 +27,7 @@ containers:
     rules:
       - Depth is positive downward; no depth reference or horizontal datum is invented.
       - properties.net is a contributor code; do not automatically assign catalogue producer usgs to this estimate.
-  - target: magnitude
+  - target: unassociated_magnitude
     multiplicity: One summary magnitude only when properties.mag is non-null.
     fields:
       - {source: properties.mag, target: value}
@@ -35,6 +35,7 @@ containers:
       - {literal: true, target: preferred}
     rules:
       - No estimate identifier, origin_id or uncertainty is manufactured from this summary.
+      - Summary origin and magnitude preference do not prove an association; no originID is supplied here.
 retain_unmapped:
   - properties.net, properties.sources and properties.ids for contributor/identifier review; never zip sources with ids by guessed order.
   - Provider fields outside this projection stay in the original response if a later workflow retains it.

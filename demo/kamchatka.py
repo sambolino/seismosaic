@@ -14,6 +14,7 @@ from pathlib import Path
 from . import model
 
 HERE = Path(__file__).parent
+OUTPUT_VERSION = 2  # Demo snapshot layout, not a metamodel version.
 SEISMIC_START, SEISMIC_END = model.utc("2025-07-20T00:00:00Z"), model.utc("2025-08-13T00:00:00Z")
 CONTEXT_START, CONTEXT_END = model.utc("2025-07-15T00:00:00Z"), model.utc("2025-08-06T00:00:00Z")
 GEOMAG_START = model.utc("2025-07-01T00:00:00Z")
@@ -122,7 +123,7 @@ def selection_edge(anchor):
 def run(output, reuse=False, progress=print):
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
-    study, report = {}, {"started_at": now(), "reuse_cache": reuse, "scenario": "Kamchatka 2025 multi-source context",
+    study, report = {}, {"output_version": OUTPUT_VERSION, "started_at": now(), "reuse_cache": reuse, "scenario": "Kamchatka 2025 multi-source context",
                          "request": {"anchor": ANCHOR, "seismic": {"start": model.stamp(SEISMIC_START), "end": model.stamp(SEISMIC_END), "min_magnitude": 6, "radius_km": 500},
                                      "ionospheric": {"start": model.stamp(CONTEXT_START), "end": model.stamp(CONTEXT_END), "radius_km": 3000},
                                      "geomagnetic": {"start": model.stamp(GEOMAG_START), "end": model.stamp(CONTEXT_END)},
@@ -255,14 +256,23 @@ def save(document, output):
     (output / "index.html").write_text(template.replace("/*SNAPSHOT*/null", embedded), encoding="utf-8")
 
 
+def saved_document(output):
+    """Never silently present an old normalized layout after the model changes."""
+    output = Path(output)
+    if not (output / "run.json").exists():
+        return None
+    report = json.loads((output / "run.json").read_text())
+    if report.get("output_version") != OUTPUT_VERSION:
+        return None
+    return {"study": json.loads((output / "study.json").read_text())["study"], "run": report}
+
+
 def serve(output, port, reuse=False):
     state = {"status": "idle", "messages": [], "document": None, "reuse_cache": reuse}
     lock = threading.Lock()
-    snapshot = Path(output) / "index.html"
-    if snapshot.exists():
-        # Existing snapshot remains visible until a successful refresh replaces it.
-        state["document"] = {"study": json.loads((Path(output)/"study.json").read_text())["study"],
-                             "run": json.loads((Path(output)/"run.json").read_text())}
+    state["document"] = saved_document(output)
+    if state["document"] is None and (Path(output) / "run.json").exists():
+        state["messages"] = ["Saved output uses an older layout. Fetch to rebuild; --reuse-cache reuses the retained source responses."]
 
     def work():
         def progress(message):

@@ -2,7 +2,7 @@ id: earthquake.quakeml
 endpoints: [usgs.events, emsc.events, geofon.events]
 status: sample_reviewed
 record: seismic_event
-representation: QuakeML BED 1.2; a small projection, not a complete schema or conformance validator.
+representation: QuakeML BED 1.2; source sibling arrays are resolved into origin-associated output, not copied as sibling output arrays.
 namespaces:
   q: http://quakeml.org/xmlns/quakeml/1.2
   b: http://quakeml.org/xmlns/bed/1.2
@@ -14,6 +14,15 @@ fields:
   - {context: endpoint.producer, target: provenance.producer.name}
   - {context: endpoint.channel, target: provenance.channel.name}
   - {context: endpoint.url, target: provenance.channel.uri}
+creation_fields:
+  scopes: Event and each Origin/Magnitude independently; never inherit missing estimate metadata from Event or enclosing Origin.
+  fields:
+    - {source: b:creationInfo/b:agencyID, target: provenance.creation.agency_id}
+    - {source: b:creationInfo/b:agencyURI, target: provenance.creation.agency_uri}
+    - {source: b:creationInfo/b:author, target: provenance.creation.author}
+    - {source: b:creationInfo/b:authorURI, target: provenance.creation.author_uri}
+    - {source: b:creationInfo/b:creationTime, target: provenance.creation.created_at, conversion: Validate UTC timestamp; preserve supplied fractional precision}
+    - {source: b:creationInfo/b:version, target: provenance.creation.version}
 containers:
   - target: origin
     selection: b:origin
@@ -21,7 +30,7 @@ containers:
     fields:
       - {source: '@publicID', target: identity.source_id}
       - {literal: 'quakeml:publicID', target: identity.namespace}
-      - {source: b:time/b:value, target: time.instant, conversion: Parse source UTC timestamp; preserve precision}
+      - {source: b:time/b:value, target: time.instant, conversion: Parse source UTC timestamp}
       - {source: b:latitude/b:value, target: position.latitude, unit: deg}
       - {source: b:longitude/b:value, target: position.longitude, unit: deg}
       - {source: b:depth/b:value, target: depth, source_unit: m, unit: km, conversion: Divide by 1000}
@@ -31,34 +40,36 @@ containers:
       source: ../b:preferredOriginID
       target: preferred
       rule: Compare the complete reference string with this origin's publicID; omit if no preference is supplied.
-    producer:
-      sources: [b:creationInfo/b:agencyID, b:creationInfo/b:author]
-      target: provenance.producer.name
-      rule: Preserve supplied agency and author as labelled source strings; omit absent parts; infer neither from ID suffixes nor channel.
-  - target: magnitude
+    containers:
+      - target: magnitude
+        selection: ../b:magnitude
+        association: Include only source magnitudes whose b:originID exactly matches this origin's publicID.
+        multiplicity: Zero or more associated magnitudes; their IDs and creation metadata remain their own.
+        fields:
+          - {source: '@publicID', target: identity.source_id}
+          - {literal: 'quakeml:publicID', target: identity.namespace}
+          - {source: b:mag/b:value, target: value}
+          - {source: b:mag/b:uncertainty, target: uncertainty}
+          - {source: b:type, target: scale}
+          - {source: b:evaluationMode, target: quality.evaluation_mode}
+          - {source: b:evaluationStatus, target: quality.status}
+        preference:
+          source: ../b:preferredMagnitudeID
+          target: preferred
+          rule: Event-wide source preference remains independent of the enclosing origin's preference.
+  - target: unassociated_magnitude
     selection: b:magnitude
-    multiplicity: Keep every returned magnitude as a separate container, with its actual origin association.
-    fields:
-      - {source: '@publicID', target: identity.source_id}
-      - {literal: 'quakeml:publicID', target: identity.namespace}
-      - {source: b:mag/b:value, target: value}
-      - {source: b:mag/b:uncertainty, target: uncertainty}
-      - {source: b:type, target: scale}
-      - {source: b:originID, target: origin_id}
-    preference:
-      source: ../b:preferredMagnitudeID
-      target: preferred
-      rule: Compare the complete reference string with this magnitude's publicID; omit if no preference is supplied.
-    producer:
-      sources: [b:creationInfo/b:agencyID, b:creationInfo/b:author]
-      target: provenance.producer.name
-      rule: Preserve supplied agency and author as labelled source strings; do not replace missing authorship with the catalogue producer.
+    association: Only magnitudes with missing originID or an originID unresolved within this event response.
+    fields: Same magnitude contents and creation metadata as above; retain origin_id only when the source supplies an unresolved reference.
 rules:
-  - Lookup eventid and QuakeML publicID are different schemes; do not derive one by splitting the other.
-  - Unresolved preference/origin references require review; never choose the first estimate as a fallback.
-  - Unknown magnitude types remain source strings; do not convert or equate scales.
-  - Creation time is not automatically record update time.
-  - Catalogue-level producer/channel bindings do not automatically propagate scientific authorship to nested estimates.
+  - Use exact source identifiers; do not infer identity by array position, proximity or URI suffix.
+  - Consume resolved originID during nesting; it is not repeated on an associated output magnitude.
+  - Never force the preferred magnitude under the preferred origin; they can refer to different origin solutions.
+  - Missing/unresolved origin association preserves the magnitude explicitly rather than guessing a parent or dropping it.
+  - Unresolved preferred IDs and duplicate estimate IDs require review; never choose the first estimate as a fallback.
+  - Publishing agency and author are separate CreationInfo roles, retained as both IDs/names and URIs when supplied.
+  - Creation time is not physical origin time, update time or retrieval time; resource version is not producer/software version.
+  - Catalogue-level producer/channel bindings do not establish scientific authorship for nested estimates.
 retain_unmapped:
-  - CreationInfo parts not projected, arrivals, picks, focal mechanisms, depth references and additional uncertainty conventions.
+  - Picks, arrivals, focal mechanisms, method/model references, depth references and additional uncertainty conventions.
   - Provider-specific identifiers/extensions until their namespaces and semantics have been reviewed.

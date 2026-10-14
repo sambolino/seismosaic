@@ -23,6 +23,15 @@ python -m demo.kamchatka --once
 
 This writes `build/kamchatka/index.html`, `study.json`, `run.json` and cached responses. Open the HTML directly in a browser. The HTML embeds the result and needs no external scripts or CDN. Generated scientific data and local environments are ignored by Git. A future run can explicitly reuse retained bodies with `--reuse-cache`; every reused response is labelled cached and retains its original fetch time. Without that flag, requests are live.
 
+After the origin/magnitude nesting change, rebuild existing saved output:
+
+```bash
+python -m demo.kamchatka --once --reuse-cache
+python -m demo.kamchatka --port 8765
+```
+
+This renormalizes retained source bodies, recovering creation metadata absent from the old JSON; it does not guess attribution from that old output. The server declines to load older normalized snapshots and shows a rebuild notice. `run.output_version=2` identifies this demo output layout, not a metamodel version. Previously exported standalone files retain their original layout until regenerated.
+
 ## The fixed request
 
 | Family | Selection |
@@ -49,7 +58,8 @@ The fixture explicitly associates the inspected EMSC mainshock ID `quakeml:eu.em
 
 ## Scientific details kept intact
 
-- QuakeML retains all returned origins and magnitudes, their IDs, preferred-reference choices, actual magnitude origin links, types and supplied authorship. Depth is converted from metres to km. Catalogue producer does not replace missing estimate authors.
+- QuakeML retains all returned origins and magnitudes. Each magnitude nests under the origin explicitly named by its source `originID`, which is consumed rather than repeated in associated output. Magnitudes with absent/unresolved associations remain explicit in `unassociated_magnitude`; only unresolved supplied links keep `origin_id`. No parent is guessed from preference or array order. Origin and magnitude preference are event-wide and independent; GEOFON's preferred magnitude can belong to a non-preferred origin. IDs, types and estimate quality remain intact. Depth is converted from metres to km.
+- All six CreationInfo fields are retained as `provenance.creation` on each Event, Origin and Magnitude where supplied: publishing agency ID/URI, author name/URI, creation time and resource version. Agency and author remain separate; neither becomes a guessed `producer.name`. Creation timestamps retain their supplied fractional precision and are distinct from physical origin, update and retrieval times. Missing estimate metadata is not inherited from a containing origin or event; a version-only CreationInfo remains represented. The viewer labels author/publisher, origin time/depth, magnitude type/value, preference and creation metadata while keeping full IDs and metadata expandable.
 - GFZ points retain complete three-hour intervals. The returned start equal to the exclusive end is excluded, not shortened. Kp and ap are separate series on their declared scales; ap stays in 2 nT scale units. Their relationship is not independent evidence.
 - GIRO uses the public historical form by programmatic POST, which returns tabulated Version 1.1 text. Codes `0` and `17` select foF2 and hmF2. Station metadata is acquisition provenance. Station producer aliases identify the contributing observing site; the exact hmF2 derivation workflow remains unreported. Missing `---` values retain their quality context without numeric zeros. QD tokens remain available, confidence is not a probability, `999` is manual without an inferred verified-clean status, and `-1` is unknown. No universal cadence is asserted.
 - GOES files are read through NetCDF4 in memory. Native time units/calendar, masks, shapes, band units, platform and product identity are checked. The inspected time variable says **Record start time**; points retain `[start, start+60 s)` and documented one-minute support. Masked flux remains absent, while reported zero remains zero. Band quality/correction flags remain named numeric tokens; their definitions are retained in `run`. The fixed archive version has no silent fallback.
@@ -64,6 +74,6 @@ Data stay subject to source terms. GIRO output includes its licence, citation an
 python -m unittest discover -s tests -v
 ```
 
-Focused offline tests cover estimate/reference preservation, units, interval-end selection, confidence special codes, missing versus zero values, NetCDF masks/flags, dateline coordinates, safe HTML embedding and cache labels. A live run is an integration check, not a deterministic unit test; source revisions and availability may change the result. The viewer builds branches lazily and pages long arrays without truncating the stored/exported data.
+Focused offline tests cover estimate nesting and independent preferences, absent/unresolved associations, all CreationInfo fields and scopes, duplicate-ID rejection, stale-output handling, units, interval-end selection, confidence special codes, missing versus zero values, NetCDF masks/flags, dateline coordinates, safe HTML embedding and cache labels. A live run is an integration check, not a deterministic unit test; source revisions and availability may change the result. The viewer builds branches lazily and pages long arrays without truncating the stored/exported data.
 
 This is an inspection scenario, not a correlation calculation. Cross-catalogue matching of the rest of the sequence, historical GIRO operating-status metadata, alternate archive versions and interpretation of solar/geomagnetic disturbances remain separate later work. The cited ionospheric/geomagnetic-triggering papers are not ingested as facts or encoded as findings.

@@ -31,12 +31,14 @@ containers:
     rules:
       - Use the positive-down depth property; the inspected geometry coordinate had the opposite sign.
       - Do not assume properties.auth identifies every estimate's scientific author.
-  - target: magnitude
+  - target: unassociated_magnitude
     multiplicity: One summary magnitude only when properties.mag is non-null.
     fields:
       - {source: properties.mag, target: value}
       - {source: properties.magtype, target: scale}
       - {literal: true, target: preferred}
+    rules:
+      - This summary supplies no magnitude originID; do not infer association with its summary preferred origin.
 rules:
   - If properties.unid is present, check it agrees with id; disagreement requires review rather than silent replacement.
   - Field spelling follows inspected lower-case JSON keys.
