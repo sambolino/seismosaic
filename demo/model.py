@@ -50,12 +50,26 @@ def identity(public_id):
     return {"source_id": public_id, "namespace": "quakeml:publicID"}
 
 
-def estimate_provenance(element):
-    agency, author = text(element, "b:creationInfo/b:agencyID"), text(element, "b:creationInfo/b:author")
-    parts = [label + "=" + value for label, value in [("agencyID", agency), ("author", author)] if value]
-    if parts:
-        return {"producer": {"name": "; ".join(parts)}}
-    return None
+def creation_provenance(element):
+    """Preserve all six CreationInfo fields without conflating their roles."""
+    creation = {}
+    for source, target in [("agencyID", "agency_id"), ("agencyURI", "agency_uri"),
+                           ("author", "author"), ("authorURI", "author_uri"),
+                           ("creationTime", "created_at"), ("version", "version")]:
+        value = text(element, "b:creationInfo/b:" + source)
+        if value is not None and value != "":
+            if source == "creationTime":
+                # BED uses UTC. Validate it, preserving the supplied fractional precision.
+                parsed = utc(value)
+                fraction = re.search(r"\.\d+", value)
+                value = parsed.isoformat(timespec="seconds").removesuffix("+00:00") + (fraction[0] if fraction else "") + "Z"
+            creation[target] = value
+    return {"creation": creation} if creation else None
+
+
+def magnitudes(record):
+    """All estimates, including explicitly unassociated ones; no preferred-origin shortcut."""
+    return [m for origin in record.get("origin", []) for m in origin.get("magnitude", [])] + record.get("unassociated_magnitude", [])
 
 
 def quakeml(payload, producer, channel, uri):
@@ -65,14 +79,22 @@ def quakeml(payload, producer, channel, uri):
     records = []
     for event in root.findall("b:eventParameters/b:event", NS):
         record = {"identity": identity(event.attrib["publicID"]),
-                  "provenance": provenance(producer, channel, uri), "origin": [], "magnitude": []}
+                  "provenance": provenance(producer, channel, uri), "origin": []}
+        event_creation = creation_provenance(event)
+        if event_creation:
+            record["provenance"].update(event_creation)
+        by_origin, magnitude_ids = {}, set()
         for tag in ["origin", "magnitude"]:
             preferred = text(event, "b:preferred" + tag.title() + "ID")
             for node in event.findall("b:" + tag, NS):
                 item = {"identity": identity(node.attrib["publicID"])}
+                source_id = item["identity"]["source_id"]
+                seen = by_origin if tag == "origin" else magnitude_ids
+                if source_id in seen:
+                    raise ValueError("Duplicate " + tag + " publicID in one event")
                 if preferred:
                     item["preferred"] = preferred == node.attrib["publicID"]
-                prov = estimate_provenance(node)
+                prov = creation_provenance(node)
                 if prov:
                     item["provenance"] = prov
                 quality = {}
@@ -101,23 +123,31 @@ def quakeml(payload, producer, channel, uri):
                         value = text(node, source)
                         if value is not None:
                             item[target] = number(value)
-                    for source, target in [("b:type", "scale"), ("b:originID", "origin_id")]:
-                        value = text(node, source)
-                        if value:
-                            item[target] = value
-                record[tag].append(item)
-            if preferred and not any(x["identity"]["source_id"] == preferred for x in record[tag]):
+                    value = text(node, "b:type")
+                    if value:
+                        item["scale"] = value
+                if tag == "origin":
+                    record["origin"].append(item)
+                    by_origin[source_id] = item
+                else:
+                    magnitude_ids.add(source_id)
+                    origin_id = text(node, "b:originID")
+                    if origin_id in by_origin:
+                        by_origin[origin_id].setdefault("magnitude", []).append(item)
+                    else:
+                        if origin_id:
+                            item["origin_id"] = origin_id  # Preserve only the unresolved source link.
+                        record.setdefault("unassociated_magnitude", []).append(item)
+            projected = record["origin"] if tag == "origin" else magnitudes(record)
+            if preferred and not any(x["identity"]["source_id"] == preferred for x in projected):
                 raise ValueError("Unresolved preferred " + tag + " reference")
-        origins = {x["identity"]["source_id"] for x in record["origin"]}
-        for magnitude in record["magnitude"]:
-            if "origin_id" in magnitude and magnitude["origin_id"] not in origins:
-                raise ValueError("Unresolved magnitude originID")
         records.append(record)
     return records
 
 
 def preferred(record, kind):
-    return next((x for x in record[kind] if x.get("preferred")), None)
+    estimates = magnitudes(record) if kind == "magnitude" else record[kind]
+    return next((x for x in estimates if x.get("preferred")), None)
 
 
 def gfz(payload, index, start, end, uri):

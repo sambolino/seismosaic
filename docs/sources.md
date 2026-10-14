@@ -51,13 +51,13 @@ GeoJSON returns a FeatureCollection. These paths are relative to a `seismic_even
 | `geometry.coordinates[0]` | `origin.position.longitude`, degrees |
 | `geometry.coordinates[1]` | `origin.position.latitude`, degrees |
 | `geometry.coordinates[2]` | `origin.depth`, km; retain the source's depth reference |
-| `properties.mag` | `magnitude.value` |
-| `properties.magType` | `magnitude.scale`; preserve source spelling |
+| `properties.mag` | `unassociated_magnitude.value`; summary fields do not supply an explicit origin link |
+| `properties.magType` | `unassociated_magnitude.scale`; preserve source spelling |
 | `properties.status` | `quality.status` |
 | `properties.net`, `sources`, `ids` | Retain contributor and alternate-identifier evidence; mapping individual identifier namespaces remains pending |
 | `properties.updated` | `provenance.updated_at`; convert epoch milliseconds to UTC |
 
-Absent values remain absent or unavailable, not zero. A summary contains source-selected preferred estimates; `origin.preferred` and `magnitude.preferred` record that selection. It does not establish the number of estimates in a full bulletin.
+Absent values remain absent or unavailable, not zero. A summary contains source-selected preferred estimates; `origin.preferred` and `unassociated_magnitude.preferred` record those independent choices. Co-occurrence does not establish their association, and the summary does not establish the number of estimates in a full bulletin.
 
 ## EMSC earthquake event service
 
@@ -82,7 +82,7 @@ The 2026-10-13 endpoint follow-up confirmed that both USGS and EMSC return a sin
 | `properties.time` | `origin.time.instant`; UTC timestamp string |
 | `properties.lat`, `properties.lon` | `origin.position.latitude`, `origin.position.longitude` |
 | `properties.depth` | `origin.depth`, km |
-| `properties.mag`, `properties.magtype` | `magnitude.value`, `magnitude.scale` |
+| `properties.mag`, `properties.magtype` | `unassociated_magnitude.value`, `unassociated_magnitude.scale`; no explicit origin link in these summary fields |
 | `properties.auth`, `source_catalog` | Retain authorship/catalogue provenance |
 | `properties.lastupdate` | `provenance.updated_at`; retain as a UTC timestamp |
 | `properties.evtype` | Retain the source's event-type code until its controlled-value mapping is reviewed |
@@ -114,13 +114,18 @@ The bounded requests below both returned HTTP 200. For this entry, USGS returned
 | Event `preferredOriginID` / `preferredMagnitudeID` | Compare with returned estimate IDs to establish `preferred`; do not select by array order |
 | Origin time/latitude/longitude | `origin.time.instant`, `origin.position.latitude`, `origin.position.longitude` |
 | Origin depth | `origin.depth`; these XML responses use metres, so divide by 1,000 for the model's km |
-| Magnitude value/type | `magnitude.value`, `magnitude.scale`; preserve unfamiliar source types such as `m` |
-| Magnitude `originID` | `magnitude.origin_id`; preserve the actual source association |
-| Supplied agency/author and estimate status | Estimate-scoped provenance and quality; do not infer authorship from delivery |
+| Magnitude value/type | `origin.magnitude.value`, `origin.magnitude.scale` after association; preserve unfamiliar source types such as `m` |
+| Magnitude `originID` | Match the exact origin publicID and nest under it; retain `origin_id` only on an explicitly unassociated magnitude with an unresolved supplied link |
+| Supplied agency/author and estimate status | Estimate-scoped `provenance.creation` and quality; preserve both URI and name/ID forms, without inferring authorship from delivery |
+| CreationInfo `creationTime` / `version` | Resource `provenance.creation.created_at` / `version`; not physical/update/retrieval time or software version |
 
 For example, the EMSC preferred origin ending in `/IMBNVGIUR` reports 130.1 km depth and has a 5.2 mb magnitude. An additional origin ending in `/IMAZVGAVX` reports 120 km and has a 5.1 mb magnitude referring to that origin. This demonstrates alternative estimates within one entry, independently of cross-catalogue identity review. See [model decisions](model_decisions.md) for semantic paths and the separate identity-edge meaning.
 
 The identifier namespace labels in these mappings are local descriptive conventions. They are not claimed to be provider-defined standards. Parsing the USGS `ids` string into fully scoped additional identifiers remains open; its `sources` list should not be paired with it by assumed array order.
+
+### Nesting and creation-metadata audit, 2026-10-14
+
+The retained Kamchatka responses were checked at Event, Origin and Magnitude scope. EMSC uses `agencyURI` and `authorURI`; USGS and GEOFON also supply creation times, agency IDs and optional resource versions. The projection now retains all six standard CreationInfo fields. Publishing agency is not automatically the author, and missing estimate metadata is not copied from a parent. Twelve GEOFON entries in the retained response have their preferred magnitude associated with a non-preferred origin; nesting preserves the reported association and the two preferences independently. These counts describe that response, not a universal catalogue property.
 
 ## GFZ Kp and ap
 

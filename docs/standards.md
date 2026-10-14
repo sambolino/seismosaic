@@ -21,18 +21,22 @@ Use the [QuakeML Basic Event Description 1.2 specification](https://quake.ethz.c
 
 | Native concept | Seismosaic projection |
 | --- | --- |
-| Event `publicID` | `identity.identifier` when additional to the service lookup ID; preserve the complete identifier |
-| Repeated Origin / Magnitude | Repeated `origin` / `magnitude` |
+| Event `publicID` | QuakeML output `identity.source_id`, namespace `quakeml:publicID`; known service lookup IDs remain separate additional identifiers |
+| Repeated Origin / Magnitude | `origin` with repeated associated `origin.magnitude`; resolve source references during normalization |
 | Estimate `publicID` | Estimate `identity.source_id`, namespace `quakeml:publicID` |
 | Origin time, position, depth | `origin.time.instant`, `origin.position`, `origin.depth`; XML metres become km |
-| Magnitude `mag.value`, `type` | `magnitude.value`, `magnitude.scale` |
-| Magnitude `originID` | `magnitude.origin_id`; optional source reference |
+| Magnitude `mag.value`, `type` | Associated `origin.magnitude.value`, `origin.magnitude.scale` |
+| Magnitude `originID` | Exact match to the containing Origin's `publicID`; consume the resolved reference rather than repeat it |
+| Missing/unresolved magnitude `originID` | `unassociated_magnitude`; retain `origin_id` only for a supplied unresolved reference |
 | Event preferred-estimate IDs | Estimate `preferred`, derived by ID comparison |
 | Estimate `evaluationMode` / `evaluationStatus` | Estimate `quality.evaluation_mode` / `quality.status` |
+| `creationInfo.agencyID` / `agencyURI` | Enclosing resource `provenance.creation.agency_id` / `agency_uri`; publishing agency, distinct from author |
+| `creationInfo.author` / `authorURI` | Enclosing resource `provenance.creation.author` / `author_uri`; keep both when supplied |
+| `creationInfo.creationTime` / `version` | Enclosing resource `provenance.creation.created_at` / `version`; resource creation and resource version |
 
-Catalogue-entry scope is Seismosaic's representation choice. QuakeML resource identifiers and service lookup IDs remain distinct. Preference belongs to the source entry; an absent or unresolved preferred ID establishes no preferred estimate. A magnitude need not have an origin reference.
+Catalogue-entry scope and nesting are Seismosaic representation choices; QuakeML's sibling serialization is not our output hierarchy. QuakeML resource identifiers and service lookup IDs remain distinct. Preference belongs to the source entry. The preferred magnitude can be under a non-preferred origin; neither preference is inherited from the other. A missing preference is omitted; unresolved preferred IDs require review. A magnitude need not have an origin reference, so it is retained explicitly as unassociated when necessary. Provider JSON summaries supply no explicit origin association for their magnitude in the reviewed fields; their mapped magnitude remains unassociated rather than guessed under the preferred origin.
 
-This projection omits picks, arrivals, focal mechanisms, station magnitudes and richer uncertainty structures. Agency/author attribution and method references must retain their estimate context; fuller mappings remain open. The model is neither a complete nor a lossless QuakeML replacement.
+All six standard CreationInfo fields are projected independently at Event, Origin and Magnitude scope. No missing estimate creation metadata is copied from a parent. Creation time is distinct from physical origin time, update time and retrieval time; resource version is distinct from producer/software or archive-product version. Agency and author names/IDs and URIs retain their separate roles, without collapsing them into `producer.name`. The projection still omits picks, arrivals, focal mechanisms, station magnitudes, method/model references and richer uncertainty structures. It is neither a complete nor a lossless QuakeML replacement.
 
 ## Ionospheric concepts: SAO and URSI
 

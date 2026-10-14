@@ -17,17 +17,87 @@ class ProjectionTests(unittest.TestCase):
         <preferredOriginID>o2</preferredOriginID><preferredMagnitudeID>m1</preferredMagnitudeID>
         <origin publicID="o1"><depth><value>35000</value></depth></origin>
         <origin publicID="o2"><time><value>2025-07-29T23:24:52.483Z</value></time><depth><value>20000</value></depth></origin>
-        <magnitude publicID="m1"><mag><value>8.8</value></mag><type>mww</type><originID>o2</originID></magnitude>
+        <magnitude publicID="m1"><mag><value>8.8</value></mag><type>mww</type><originID>o1</originID></magnitude>
+        <magnitude publicID="m2"><mag><value>7.4</value></mag><type>mb</type><originID>o1</originID></magnitude>
+        <magnitude publicID="m3"><mag><value>8.7</value></mag><type>Mw</type><originID>o2</originID></magnitude>
         </event></eventParameters></q:quakeml>'''
         record = model.quakeml(payload, "catalogue", "route", "https://example.invalid")[0]
         self.assertEqual(record["origin"][0]["depth"], 35)
         self.assertEqual(model.preferred(record, "origin")["identity"]["source_id"], "o2")
         self.assertFalse(record["origin"][0]["preferred"])
-        self.assertEqual(record["magnitude"][0]["origin_id"], "o2")
+        self.assertEqual([m["identity"]["source_id"] for m in record["origin"][0]["magnitude"]], ["m1", "m2"])
+        self.assertEqual(len(record["origin"][1]["magnitude"]), 1)
+        self.assertEqual(model.preferred(record, "magnitude")["identity"]["source_id"], "m1")
+        self.assertNotIn("origin_id", record["origin"][0]["magnitude"][0])
+        self.assertNotIn("magnitude", record)
+        self.assertNotIn("unassociated_magnitude", record)
         self.assertNotIn("provenance", record["origin"][0])
         self.assertNotIn("$edges", record)
-        with self.assertRaises(ValueError):
-            model.quakeml(payload.replace(b"<originID>o2", b"<originID>absent"), "catalogue", "route", "uri")
+        unresolved = model.quakeml(payload.replace(b"<originID>o1", b"<originID>absent", 1), "catalogue", "route", "uri")[0]
+        self.assertEqual(unresolved["unassociated_magnitude"][0]["origin_id"], "absent")
+        self.assertEqual(model.preferred(unresolved, "magnitude")["identity"]["source_id"], "m1")
+        self.assertEqual(len(model.magnitudes(unresolved)), 3)
+
+    def test_missing_origin_reference_is_not_guessed(self):
+        payload = b'''<q:quakeml xmlns:q="http://quakeml.org/xmlns/quakeml/1.2" xmlns="http://quakeml.org/xmlns/bed/1.2"><eventParameters publicID="ep"><event publicID="e">
+        <preferredOriginID>o</preferredOriginID><preferredMagnitudeID>m</preferredMagnitudeID>
+        <origin publicID="o"><depth><value>35000</value></depth></origin>
+        <magnitude publicID="m"><mag><value>8.8</value></mag></magnitude></event></eventParameters></q:quakeml>'''
+        record = model.quakeml(payload, "catalogue", "route", "uri")[0]
+        self.assertNotIn("magnitude", record["origin"][0])
+        magnitude = record["unassociated_magnitude"][0]
+        self.assertNotIn("origin_id", magnitude)
+        self.assertTrue(magnitude["preferred"])
+
+    def test_all_creation_fields_and_independent_metadata_scopes(self):
+        payload = b'''<q:quakeml xmlns:q="http://quakeml.org/xmlns/quakeml/1.2" xmlns="http://quakeml.org/xmlns/bed/1.2"><eventParameters publicID="ep"><event publicID="e">
+        <creationInfo><agencyID>catalogue publisher</agencyID><creationTime>2026-10-12T15:59:55.086Z</creationTime><version>event-B</version></creationInfo>
+        <origin publicID="o"><time><value>2025-07-29T23:24:52.483Z</value></time><creationInfo><agencyID>publishing agency</agencyID><agencyURI>smi:org/publisher</agencyURI><author>scientific author</author><authorURI>smi:org/author</authorURI><creationTime>2025-07-30T05:12:16.797668Z</creationTime><version>origin-A</version></creationInfo></origin>
+        <magnitude publicID="m"><mag><value>8.8</value></mag><originID>o</originID><creationInfo><version>magnitude-C</version></creationInfo></magnitude>
+        </event></eventParameters></q:quakeml>'''
+        record = model.quakeml(payload, "catalogue", "route", "uri")[0]
+        origin = record["origin"][0]
+        creation = origin["provenance"]["creation"]
+        self.assertEqual(creation, {"agency_id": "publishing agency", "agency_uri": "smi:org/publisher",
+                         "author": "scientific author", "author_uri": "smi:org/author",
+                         "created_at": "2025-07-30T05:12:16.797668Z", "version": "origin-A"})
+        self.assertNotIn("producer", origin["provenance"])
+        self.assertNotIn("updated_at", origin["provenance"])
+        self.assertEqual(origin["magnitude"][0]["provenance"], {"creation": {"version": "magnitude-C"}})
+        self.assertEqual(record["provenance"]["producer"]["name"], "catalogue")
+        self.assertEqual(record["provenance"]["creation"]["created_at"], "2026-10-12T15:59:55.086Z")
+        self.assertEqual(origin["time"]["instant"], "2025-07-29T23:24:52.483000Z")
+
+    def test_uri_only_attribution_and_creation_time_normalization(self):
+        node = model.ET.fromstring('''<origin xmlns="http://quakeml.org/xmlns/bed/1.2"><creationInfo><agencyURI>smi:smi-registry/organization/EMSC</agencyURI><authorURI>smi:smi-registry/organization/KOERI</authorURI><creationTime>2025-07-30T07:12:16.797668+02:00</creationTime></creationInfo></origin>''')
+        creation = model.creation_provenance(node)["creation"]
+        self.assertEqual(creation["author_uri"], "smi:smi-registry/organization/KOERI")
+        self.assertNotIn("author", creation)
+        self.assertNotIn("agency_id", creation)
+        self.assertEqual(creation["created_at"], "2025-07-30T05:12:16.797668Z")
+        precise = model.ET.fromstring('''<origin xmlns="http://quakeml.org/xmlns/bed/1.2"><creationInfo><creationTime>2025-07-30T07:12:16.797668123+02:00</creationTime></creationInfo></origin>''')
+        self.assertEqual(model.creation_provenance(precise)["creation"]["created_at"], "2025-07-30T05:12:16.797668123Z")
+
+    def test_duplicate_estimate_ids_and_missing_preference_are_rejected(self):
+        payload = b'''<q:quakeml xmlns:q="http://quakeml.org/xmlns/quakeml/1.2" xmlns="http://quakeml.org/xmlns/bed/1.2"><eventParameters publicID="ep"><event publicID="e"><origin publicID="same"/><origin publicID="same"/></event></eventParameters></q:quakeml>'''
+        with self.assertRaisesRegex(ValueError, "Duplicate origin"):
+            model.quakeml(payload, "catalogue", "route", "uri")
+        missing = payload.replace(b'<origin publicID="same"/><origin publicID="same"/>', b'<preferredMagnitudeID>missing</preferredMagnitudeID>')
+        with self.assertRaisesRegex(ValueError, "Unresolved preferred magnitude"):
+            model.quakeml(missing, "catalogue", "route", "uri")
+        duplicated = payload.replace(b'<origin publicID="same"/><origin publicID="same"/>', b'<magnitude publicID="same"/><magnitude publicID="same"/>')
+        with self.assertRaisesRegex(ValueError, "Duplicate magnitude"):
+            model.quakeml(duplicated, "catalogue", "route", "uri")
+
+    def test_legacy_saved_output_needs_renormalization(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root/"run.json").write_text('{"record_count":1}')
+            (root/"study.json").write_text('{"study":{"legacy":[]}}')
+            self.assertIsNone(kamchatka.saved_document(root))
+            self.assertIn("legacy", (root/"study.json").read_text())
+            (root/"run.json").write_text(json.dumps({"output_version":kamchatka.OUTPUT_VERSION}))
+            self.assertEqual(kamchatka.saved_document(root)["run"]["output_version"], kamchatka.OUTPUT_VERSION)
 
     def test_gfz_end_label_and_missing_status(self):
         payload = json.dumps({"datetime": ["2025-07-29T21:00:00Z", "2025-07-30T00:00:00Z"], "ap": [12, 0]}).encode()

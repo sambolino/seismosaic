@@ -40,13 +40,15 @@ A reported `statistic` describes the output value, not an instruction to calcula
 
 ## Seismic catalogue entries and estimates
 
-`seismic_event` keeps the small QuakeML BED 1.2 projection: multiple origins and magnitudes, source-selected preference, optional magnitude-to-origin references, estimate quality and provenance. The generic `event` form does not force a common timestamp: seismic event times belong to their origin estimates.
+`seismic_event` keeps multiple origins, each holding its source-associated magnitudes. Normalization resolves QuakeML's sibling `Magnitude.originID` references against complete Origin publicIDs. Associated magnitudes carry no redundant `origin_id`. An explicitly `unassociated_magnitude` retains an absent or unresolved association without guessing a parent; only the unresolved case retains the reported `origin_id`. Shared magnitude contents are composed through `<_magnitude>`, not inherited as record subtypes. The generic `event` form does not force a common timestamp: seismic event times belong to their origin estimates.
 
 Primary identifiers use `identity.source_id` and `identity.namespace`. Additional source-supported identifiers use repeated `identity.identifier` entries. Local namespace labels `usgs:event`, `emsc:unid`, `emsc:evid` and `quakeml:publicID` identify the reviewed schemes; they are not claimed to be provider-declared standard vocabulary.
 
-The reviewed USGS `us7000rlzn` and EMSC `20260101_0000344` entries remain separate catalogue records. EMSC's detailed response supplied ten origins and ten magnitudes within its entry; these are estimates, not ten earthquakes. A source preference is not a judgement of physical accuracy. Preserve each magnitude's supplied origin reference.
+The reviewed USGS `us7000rlzn` and EMSC `20260101_0000344` entries remain separate catalogue records. EMSC's detailed response supplied ten origins and ten magnitudes within its entry; these are estimates, not ten earthquakes. A source preference is not a judgement of physical accuracy. Preserve each magnitude's supplied origin association through nesting. Origin and magnitude preference stay independent; the preferred magnitude can be under a non-preferred origin. Do not infer an association merely because a JSON summary reports one preferred origin and one preferred magnitude.
 
 Estimate provenance describes the immediately enclosing estimate. Entry-level catalogue provenance does not establish every estimate's authorship. Nested estimates do not receive ordinary nested qualifiers. Separately qualified estimate records remain a possible next extension when their independent addressability is needed.
+
+All six CreationInfo fields live in that resource's `provenance.creation`: publishing agency ID/URI, author name/URI, creation time and resource version. No missing estimate metadata is filled from the Event or containing Origin. `created_at` and `version` describe the resource, not physical event time, update/retrieval time or a software version. This preserves URI-only EMSC attribution and partial creation metadata.
 
 Source update time in `provenance.updated_at` differs from physical event time and retrieval time. A timestamp alone does not reconstruct a revision history.
 

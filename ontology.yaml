@@ -116,6 +116,28 @@
     type: string
   $ref: <acquisition>
   $ref: <product>
+  $ref: <creation>
+
+<creation>:
+  description: "Source-reported resource creation metadata, projected from QuakeML CreationInfo where supplied; scoped to the enclosing event or estimate"
+  [agency_id]:
+    description: "Reported designation of the agency publishing this resource; not automatically its scientific author"
+    type: string
+  [agency_uri]:
+    description: "Reported resource identifier of the publishing agency"
+    type: string
+  [author]:
+    description: "Reported author name for this resource"
+    type: string
+  [author_uri]:
+    description: "Reported resource identifier of this resource's author; retain alongside author name when both are supplied"
+    type: string
+  [created_at]:
+    description: "Reported resource creation time in UTC; distinct from physical origin time, record update time and retrieval time"
+    type: string
+  [version]:
+    description: "Reported resource version from CreationInfo; not an agency, software, method or archive-product version"
+    type: string
 
 <platform>:
   [name]:
@@ -153,6 +175,7 @@
   $ref: <position>
   $ref: <quality>
   $ref: <provenance>
+  $refs: <magnitude>
   [preferred]:
     description: "Whether this is the enclosing catalogue entry's source-selected preferred origin; absent when preference is unknown"
     type: boolean
@@ -164,17 +187,14 @@
     description: "Reported reference for depth, where supplied"
     type: string
 
-<magnitude>:
-  description: "One magnitude estimate represented by the enclosing catalogue entry; aligned with QuakeML Magnitude"
+<_magnitude>:
+  description: "Shared magnitude-estimate contents; association is represented by the concrete enclosing structure"
   $ref: <identity>
   $ref: <quality>
   $ref: <provenance>
   [preferred]:
     description: "Whether this is the enclosing catalogue entry's source-selected preferred magnitude; not a judgement of best physical accuracy"
     type: boolean
-  [origin_id]:
-    description: "Source-reported identifier of the origin associated with this magnitude; interpreted in the source reference scheme"
-    type: string
   [value]:
     description: "Reported earthquake magnitude"
     type: float
@@ -184,6 +204,17 @@
   [uncertainty]:
     description: "Reported uncertainty of the magnitude estimate"
     type: float
+
+<magnitude>:
+  description: "One source-associated magnitude under its origin; containment resolves the source origin reference and does not imply shared authorship or preference"
+  $ref: <_magnitude>
+
+<unassociated_magnitude>:
+  description: "A reported magnitude whose origin association is absent or unresolved in the response; retained at event scope without guessing a parent"
+  $ref: <_magnitude>
+  [origin_id]:
+    description: "Reported origin reference only when its target is absent from the response; omit when no association was reported"
+    type: string
 
 <_quantity>:
   description: "Reusable scalar quantity contents; concrete quantities supply their meaning and units"
@@ -270,9 +301,9 @@
 
 <seismic_event>:
   $is: <event>
-  description: "A source's seismic catalogue entry, retaining its QuakeML-style origin and magnitude estimates and source preferences"
+  description: "A source's seismic catalogue entry; each origin holds its source-associated magnitudes, with source preferences retained independently"
   $refs: <origin>
-  $refs: <magnitude>
+  $refs: <unassociated_magnitude>
 
 <station>:
   description: "Observing-site metadata within acquisition provenance; not a compulsory first-level registry record"

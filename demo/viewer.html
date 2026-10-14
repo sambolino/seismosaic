@@ -67,13 +67,45 @@ function describe(value) {
   if (value && typeof value === 'object') return `{ ${Object.keys(value).length} fields }`;
   return scalar(value);
 }
-function preview(value) {
+function attribution(creation) {
+  if(!creation)return [];
+  const parts=[];
+  const short=uri=>uri.split(/[\/#]/).filter(Boolean).at(-1)||uri;
+  if(creation.author || creation.author_uri)parts.push('author: '+(creation.author || short(creation.author_uri)));
+  if(creation.agency_id || creation.agency_uri)parts.push('publisher: '+(creation.agency_id || short(creation.agency_uri)));
+  if(creation.created_at)parts.push('created: '+creation.created_at);
+  if(creation.version!==undefined)parts.push('version: '+creation.version);
+  return parts;
+}
+function preview(value,kind) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return '';
+  if(kind==='origin'){
+    const parts=[value.preferred?'preferred origin':'origin estimate'];
+    if(value.time?.instant)parts.push(value.time.instant);
+    if(value.depth!==undefined)parts.push('depth '+value.depth+' km');
+    parts.push(...attribution(value.provenance?.creation));return parts.join(' · ');
+  }
+  if(kind==='magnitude' || kind==='unassociated_magnitude'){
+    const parts=[value.value!==undefined?String(value.value)+(value.scale?' '+value.scale:''):'magnitude estimate'];
+    if(value.preferred)parts.push('preferred magnitude for event');
+    if(kind==='unassociated_magnitude')parts.push('origin association unavailable');
+    parts.push(...attribution(value.provenance?.creation));return parts.join(' · ');
+  }
+  if(kind==='creation')return attribution(value).join(' · ');
+  if(kind==='provenance' && value.creation)return attribution(value.creation).join(' · ');
+  if(kind==='seismic_event'){
+    const origin=value.origin?.find(x=>x.preferred);
+    const mags=(value.origin||[]).flatMap(x=>x.magnitude||[]).concat(value.unassociated_magnitude||[]);
+    const magnitude=mags.find(x=>x.preferred),parts=[];
+    if(origin?.time?.instant)parts.push('preferred origin: '+origin.time.instant);
+    if(magnitude?.value!==undefined)parts.push('preferred magnitude: '+magnitude.value+' '+(magnitude.scale||''));
+    if(parts.length)return parts.join(' · ');
+  }
   if (value.identity?.source_id) return value.identity.source_id;
   if (value.time) return value.time.instant || value.time.start || value.time.label || '';
   return '';
 }
-function node(key, value, depth=0) {
+function node(key, value, depth=0,kind=String(key).split('@')[0]) {
   if (value === null || typeof value !== 'object') {
     const row=document.createElement('div');row.className='primitive';
     const name=document.createElement('span');name.className='key';name.textContent=JSON.stringify(String(key))+': ';
@@ -81,8 +113,9 @@ function node(key, value, depth=0) {
     row.append(name,content);return row;
   }
   const details=document.createElement('details'),summary=document.createElement('summary');
-  const name=document.createElement('span');name.className='key';name.textContent=String(key);
-  const hint=document.createElement('span');hint.className='hint';hint.textContent=describe(value)+(preview(value)?' · '+preview(value):'');
+  const name=document.createElement('span');name.className='key';name.textContent=(typeof key==='number' && kind==='origin'?'Origin estimate ':typeof key==='number' && kind==='magnitude'?'Magnitude ':typeof key==='number' && kind==='unassociated_magnitude'?'Unassociated magnitude ':'')+String(key);
+  const label=preview(value,kind);
+  const hint=document.createElement('span');hint.className='hint';hint.textContent=describe(value)+(label?' · '+label:'');
   summary.append(name,hint);details.append(summary);
   let built=false;
   function expand(){
@@ -92,7 +125,7 @@ function node(key, value, depth=0) {
     let next=0;const more=document.createElement('button');more.className='more';
     function page(){
       const stop=Math.min(next+40,entries.length);
-      for(;next<stop;next++){const [k,v]=entries[next];children.append(node(k,v,depth+1));}
+      for(;next<stop;next++){const [k,v]=entries[next];children.append(node(k,v,depth+1,Array.isArray(value)?kind:String(k).split('@')[0]));}
       more.remove();if(next<entries.length){more.textContent=`Show next ${Math.min(40,entries.length-next)} · ${entries.length-next} remaining`;children.append(more);}
     }
     more.addEventListener('click',page);page();
@@ -142,7 +175,7 @@ const snapshot=JSON.parse($('snapshot').textContent.replace('/*SNAPSHOT*/',''));
 if(snapshot){render(snapshot);$('fetch').hidden=true;$('live-status').textContent=snapshot.run.reuse_cache?'Saved result · cached responses reused':'Saved result from live source requests';}
 else if(location.protocol==='http:'||location.protocol==='https:'){
   read('/api/study').then(document=>{if(document)render(document);}).catch(()=>{});
-  read('/api/status').then(status=>{if(status.reuse_cache)$('fetch').textContent='Build using cached responses';if(status.status==='running'){$('fetch').disabled=true;poll();}}).catch(error=>{$('error').textContent=error.message;});
+  read('/api/status').then(status=>{if(status.reuse_cache)$('fetch').textContent='Build using cached responses';if(status.messages.length)$('live-status').textContent=status.messages.at(-1);if(status.status==='running'){$('fetch').disabled=true;poll();}}).catch(error=>{$('error').textContent=error.message;});
 }else{$('fetch').disabled=true;$('live-status').textContent='Start python -m demo.kamchatka to fetch sources.';}
 </script>
 </html>
