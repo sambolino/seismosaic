@@ -33,7 +33,7 @@
 <header>
   <div class="eyebrow">Seismosaic / fixed live scenario</div>
   <h1 id="scenario-title">Kamchatka, July–August 2025</h1>
-  <p id="scenario-subtitle">Source records around the USGS M8.8 mainshock. Every estimate, interval and quality flag keeps its own context.</p>
+  <p id="scenario-subtitle">Source records around the USGS M8.8 mainshock, alongside oxygen collision reference inputs. Every estimate, interval and quality flag keeps its own context.</p>
   <div class="toolbar">
     <button class="primary" id="fetch">Fetch live study</button>
     <button id="export" disabled>Export study JSON</button>
@@ -55,7 +55,7 @@
     <details class="report-toggle"><summary>Run details: requests, access results and native flag definitions</summary><p>Workflow and retrieval information is separate from the scientific study.</p><div id="run-tree" class="tree"></div></details>
   </section>
 </main>
-<footer id="scenario-footer">Units follow the ontology: depth and hmF2 in km · foF2 in MHz · ap on the 2 nT scale · XRS irradiance in W m−2.<br>USGS / EMSC / GEOFON · GFZ Kp/ap · GIRO/DIDBase · NOAA/NCEI GOES-18 XRS.<br>GIRO data retain CC BY-NC-SA 4.0 and provider acknowledgement requirements. Selection and catalogue agreement do not establish causation or independent evidence.</footer>
+<footer id="scenario-footer">Units follow the ontology: depth and hmF2 in km · foF2 in MHz · ap on the 2 nT scale · XRS irradiance in W m−2. CollisionDB curves retain native X/Y units.<br>USGS / EMSC / GEOFON · GFZ Kp/ap · GIRO/DIDBase · NOAA/NCEI GOES-18 XRS · CollisionDB reference inputs.<br>GIRO retains CC BY-NC-SA 4.0; CollisionDB retains CC BY 4.0 and source DOI citations. Selection, catalogue agreement and inclusion of reference inputs do not establish causation, independent evidence or actual model use.</footer>
 <script id="presentation" type="application/json">/*PRESENTATION*/null</script>
 <script id="snapshot" type="application/json">/*SNAPSHOT*/null</script>
 <script>
@@ -102,7 +102,7 @@ function preview(value,kind) {
   if(kind==='creation')return attribution(value).join(' · ');
   if(kind==='provenance' && value.creation)return attribution(value.creation).join(' · ');
   if(kind==='collision_dataset')return [value.identity?.source_id,value.process?.reaction,value.cross_section?'cross section':'rate coefficient'].filter(Boolean).join(' · ');
-  if(kind==='cross_section' || kind==='rate_coefficient')return [value.argument?.name+' / '+value.argument?.unit,'value / '+value.unit,value.data_from_fit===true?'fit-generated table':value.data_from_fit===false?'source table':'',value.points?.length+' points'].filter(Boolean).join(' · ');
+  if(kind==='cross_section' || kind==='rate_coefficient')return ['X: '+value.X?.name+' / '+value.X?.unit,'Y: '+value.Y?.name+' / '+value.Y?.unit,value.data_from_fit===true?'fit-generated table':value.data_from_fit===false?'source table':'',value.points?.length+' points'].filter(Boolean).join(' · ');
   if(kind==='seismic_event'){
     const origin=value.origin?.find(x=>x.preferred);
     const mags=(value.origin||[]).flatMap(x=>x.magnitude||[]).concat(value.unassociated_magnitude||[]);

@@ -96,3 +96,9 @@ The Kamchatka demo can select whole catalogue entries and series for comparison,
 The approved addition is a separate fixed two-dataset oxygen example through the official Python client. BEAMDB, ACol and MolD are not included. `collision_dataset` specializes `reference_data`; concrete quantities compose `_tabulated_curve`. Native coordinate labels remain fields while their interpretation is unresolved; no temperature parameter binding is invented from E/eV.
 
 One record per source dataset ID preserves independent method/citation metadata even when reactions agree. Source reaction text coexists with pyvalem-parsed participants/states. Database insertion time is separate from creation, updates and observation time. Relative and explicit point uncertainty stay distinct; client-initialized zeros are not source claims. Fit validity is separate from sampled range; fit metadata is represented without execution. Collection membership requires no fabricated comparison or derivation edge.
+
+## Explicit curve axes and combined study
+
+`<X>` and `<Y>` specialize `<axis>` for coordinate and ordinate roles. Each curve composes those containers once, while points retain numeric X/Y pairs. Meaning comes from the concrete quantity and source definitions; role does not bind an unresolved rate coordinate to temperature. This change uses the existing container-inheritance notation and changes no metamodel syntax.
+
+The same hardcoded CollisionDB collector now contributes to Kamchatka and its standalone example. Retrieval/cache results stay separate from scientific records. Membership does not assert event association, applicability or actual derivation. The former retained-response record count is not a fixed live result. Tests and live checks are provided for the user to execute.

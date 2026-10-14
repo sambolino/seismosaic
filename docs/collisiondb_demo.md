@@ -1,6 +1,6 @@
 # Fixed CollisionDB reference-data example
 
-The official `pycollisiondb` client retrieves two oxygen ionization datasets for the shared expandable study viewer. Requests are fixed. This example represents physical reference inputs; it computes no ionospheric model or earthquake association.
+The official `pycollisiondb` client retrieves two oxygen ionization datasets for the shared expandable study viewer. The same collector is now included in the fixed Kamchatka run; this command remains available for inspecting the reference subset alone. Requests are fixed. This example represents physical reference inputs; it computes no ionospheric model or earthquake association.
 
 ## Run locally
 
@@ -38,7 +38,7 @@ The rate coordinate is labelled **E in eV**. Its temperature/distribution interp
 
 ## Representation and limits
 
-`study.collision_dataset@collisiondb:collisiondb-api` has one record per dataset ID, with process/participants, method, DOI citations and a concrete cross-section or rate curve. `reference_data` is its inherited record form, not another JSON wrapper. Curves compose table contents; they do not inherit `time_series` or create an observation per point. Reference records have no fabricated Earth-observation time, location or event-selection edges.
+`study.collision_dataset@collisiondb:collisiondb-api` has one record per dataset ID, with process/participants, method, DOI citations and a concrete cross-section or rate curve. `reference_data` is its inherited record form, not another JSON wrapper. Curves compose table contents and declare `X` and `Y`, each specializing `<axis>`. Axis metadata carries the native name and unit once; `points` hold numeric `{X, Y}` pairs, with optional absolute uncertainty on Y. Axis role alone does not establish energy or temperature semantics. They do not inherit `time_series` or create an observation per point. Reference records have no fabricated Earth-observation time, location or event-selection edges.
 
 The producer alias denotes the curated CollisionDB product; original scientific attribution remains in citations/method. The channel denotes the actual API, while the client/version belongs in `run`. Database insertion time maps to `provenance.database.added_at`, distinct from observations, revisions and QuakeML creation. `metadata_version: M1.0` is a format version retained in `run`. No timezone is invented for archive-generation timestamps; retrieval times are UTC. Native archives and SHA-256 receipts support replay.
 
@@ -49,3 +49,7 @@ The library initializes unspecified uncertainty arrays to zero. Native table tok
 Empty results, partial returns and failures have distinct source statuses. `--once` exits nonzero for missing requested IDs or failures. Offline tests cover projection/replay; live verification exercises the client separately. These datasets are possible modelling inputs whose applicability requires atmospheric state, an electron distribution and a reaction network. Initial exact molecular-pair queries returned zero; species listings alone do not establish process coverage.
 
 Data are CC BY 4.0; retain original citations. See the [paper](https://doi.org/10.3390/atoms12040020), [official client](https://github.com/IAEA-NDS/pycollisiondb), [metadata conventions](https://db-amdis.org/collisiondb/submitting-data/), [access profile](../endpoints/collisiondb.yaml) and [mapping](../mappings/collisiondb.yaml).
+
+## Follow-up layout and combined run
+
+`run.output_version=2` marks the axis layout for this standalone example. Existing source archives can rebuild it with `--once --reuse-cache`; old normalized snapshots are declined until rebuilt. The combined Kamchatka layout is version 3 and has its own reference cache. Run `python -m demo.kamchatka --port 8765` to retrieve both the earthquake/geophysical data and these reference inputs in one study.

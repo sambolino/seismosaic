@@ -35,10 +35,10 @@ quantity_bindings:
   - {data_type: cross section, target: cross_section, reviewed_id: D111118}
   - {data_type: rate coefficient, target: rate_coefficient, reviewed_id: D110743}
 curve_fields:
-  - {source: 'metadata.columns[0].name', target: argument.name}
-  - {source: 'metadata.columns[0].units', target: argument.unit}
-  - {source: 'metadata.columns[1].name', target: name}
-  - {source: 'metadata.columns[1].units', target: unit}
+  - {source: 'metadata.columns[0].name', target: X.name}
+  - {source: 'metadata.columns[0].units', target: X.unit}
+  - {source: 'metadata.columns[1].name', target: Y.name}
+  - {source: 'metadata.columns[1].units', target: Y.unit}
   - {source: metadata.data_from_fit, target: data_from_fit, condition: Only a reported boolean}
   - {source: metadata.fit.func, target: fit.function}
   - {source: metadata.fit.coeffs, target: fit.coefficient, conversion: Keep native names/numbers as entries; execute nothing}
@@ -48,8 +48,8 @@ curve_fields:
 points:
   selection: Aligned dataset.x/dataset.y and the corresponding retained native row
   fields:
-    - {source: 'dataset.x[i]', target: argument}
-    - {source: 'dataset.y[i]', target: value}
+    - {source: 'dataset.x[i]', target: X}
+    - {source: 'dataset.y[i]', target: Y}
     - {source: native colon uncertainty token, target: uncertainty, conversion: One absolute token is symmetric; two are asymmetric lower/upper magnitudes}
 rules:
   - Preserve native units; do not relabel rate coordinate E as temperature.
@@ -64,3 +64,8 @@ retain_unmapped:
   - metadata_version and archive receipt/checksum are retained in run, outside study.
   - from_aladdin and extra fit/quality metadata remain in the archive; full import lineage is not projected.
   - Bibliography resolution returned HTTP 404; no publication authors/titles are fabricated from DOIs.
+
+axis_roles:
+  X: Independent coordinate; native name/unit retained without guessing temperature.
+  Y: Dependent quantity; native name/unit retained.
+  point_pairs: Each point holds numeric X/Y in the enclosing declared axis units; point uncertainty refers to Y.

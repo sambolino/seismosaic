@@ -207,13 +207,37 @@ class ProjectionTests(unittest.TestCase):
             if isinstance(params, dict) and params.get("eventid") == kamchatka.ANCHOR["usgs_id"]:
                 return anchor, {"http_status": 200, "cached": False}
             raise OSError("Source unavailable in offline test")
-        with tempfile.TemporaryDirectory() as tmp, patch("demo.kamchatka.request", side_effect=fetch):
+        with tempfile.TemporaryDirectory() as tmp, patch("demo.kamchatka.request", side_effect=fetch), patch("demo.collisiondb.fetch", side_effect=OSError("Reference source unavailable in offline test")):
             document = kamchatka.run(tmp, progress=lambda _: None)
         self.assertEqual(document["run"]["status"], "partial")
         self.assertEqual(document["run"]["record_count"], 1)
         self.assertEqual(document["run"]["sources"]["giro"]["status"], "failed")
         self.assertEqual(len(document["run"]["sources"]["goes"]["days"]), 22)
         self.assertEqual(list(document["study"]), ["seismic_event@usgs:usgs-fdsn"])
+        self.assertEqual(document["run"]["sources"]["collisiondb"]["status"], "failed")
+
+    def test_reference_inputs_join_the_same_study_without_event_edges(self):
+        anchor = b'''<q:quakeml xmlns:q="http://quakeml.org/xmlns/quakeml/1.2" xmlns="http://quakeml.org/xmlns/bed/1.2"><eventParameters publicID="ep"><event publicID="anchor">
+        <preferredOriginID>o</preferredOriginID><preferredMagnitudeID>m</preferredMagnitudeID>
+        <origin publicID="o"><time><value>2025-07-29T23:24:52.483Z</value></time><latitude><value>52.4948</value></latitude><longitude><value>160.2395</value></longitude></origin>
+        <magnitude publicID="m"><mag><value>8.8</value></mag><type>mww</type><originID>o</originID></magnitude>
+        </event></eventParameters></q:quakeml>'''
+        def fetch(url, params=None, *args):
+            if isinstance(params, dict) and params.get("eventid") == kamchatka.ANCHOR["usgs_id"]:
+                return anchor, {"http_status": 200, "cached": False}
+            raise OSError("Other sources unavailable in offline test")
+        records = [{"identity": {"source_id": qid, "namespace": "collisiondb:dataset"},
+                    "process": {"reaction": "e- + O → O+ + 2e-"}}
+                   for qid in ["D110743", "D111118"]]
+        result = {"records": records, "receipt": {"cached": False}, "metadata_versions": ["M1.0"]}
+        with tempfile.TemporaryDirectory() as tmp, patch("demo.kamchatka.request", side_effect=fetch), patch("demo.collisiondb.fetch", return_value=result) as reference_fetch:
+            document = kamchatka.run(tmp, progress=lambda _: None)
+            reference_fetch.assert_called_once_with(Path(tmp) / "collisiondb", False)
+        self.assertEqual(document["study"]["collision_dataset@collisiondb:collisiondb-api"], records)
+        self.assertEqual(document["run"]["sources"]["collisiondb"]["status"], "ok")
+        self.assertEqual(document["run"]["record_count"], 3)
+        self.assertEqual(document["run"]["request"]["collisiondb"], {"pks": [110743, 111118]})
+        self.assertTrue(all("$edges" not in record and "time" not in record for record in records))
 
 
 if __name__ == "__main__":
