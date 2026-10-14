@@ -117,6 +117,27 @@
   $ref: <acquisition>
   $ref: <product>
   $ref: <creation>
+  $ref: <method>
+  $ref: <database>
+  $refs: <citation>
+
+<method>:
+  [name]:
+    description: "Reported scientific production method in the source vocabulary; distinct from a delivery client"
+    type: string
+
+<database>:
+  [name]:
+    type: string
+  [added_at]:
+    description: "Reported database insertion time in UTC; not physical observation time or a dataset revision date"
+    type: string
+
+<citation>:
+  description: "One source-supplied bibliographic reference; retain its identifier namespace and available DOI"
+  $ref: <identity>
+  [doi]:
+    type: string
 
 <creation>:
   description: "Source-reported resource creation metadata, projected from QuakeML CreationInfo where supplied; scoped to the enclosing event or estimate"
@@ -403,6 +424,148 @@
     --derived_from--> <time_series>@{producer}:{channel}
     --derived_from--> <summary>@{producer}:{channel}
 
+<reference_data>:
+  description: "Common record form for published physical reference inputs; no compulsory Earth-observation time or position"
+  $ref: <identity>
+  $ref: <quality>
+  $ref: <provenance>
+
+<participant>:
+  [count]:
+    description: "Reaction stoichiometric multiplicity, as parsed from the source reaction"
+    type: float
+  [designation]:
+    description: "Stateful species in the source's pyvalem-compatible notation"
+    type: string
+  [species]:
+    description: "Species formula including charge and isotope, in pyvalem notation; not a global species identifier"
+    type: string
+  [state]:
+    description: "Reported state specifications, retained as strings rather than mapped to a new quantum-state ontology"
+    type: array
+    items:
+      type: string
+
+<process_classification>:
+  [code]:
+    type: string
+  [description]:
+    type: string
+  [vocabulary]:
+    type: string
+
+<process>:
+  description: "Reported collision reaction and classification; a physical process, not a workflow instruction"
+  [reaction]:
+    description: "Source reaction text retained verbatim"
+    type: string
+  <reactant>:
+    type: array
+    items:
+      $ref: <_participant>
+  <product>:
+    type: array
+    items:
+      $ref: <_participant>
+  <classification>:
+    type: array
+    items:
+      $ref: <_process_classification>
+  <threshold>:
+    [value]:
+      type: float
+    [unit]:
+      type: string
+  [energy_reference]:
+    description: "Reported collision energy reference, such as target or com; unrelated to workflow comparison frames"
+    type: string
+
+<curve_argument>:
+  [name]:
+    description: "Native coordinate label; E in eV on a rate curve is not automatically relabelled as temperature"
+    type: string
+  [unit]:
+    type: string
+
+<absolute_uncertainty>:
+  [lower]:
+    description: "Reported lower absolute uncertainty magnitude in the enclosing curve's value unit"
+    type: float
+  [upper]:
+    description: "Reported upper absolute uncertainty magnitude in the enclosing curve's value unit"
+    type: float
+
+<fit_coefficient>:
+  [name]:
+    description: "Native coefficient name, including source names that are not Python identifiers"
+    type: string
+  [value]:
+    type: float
+
+<fit>:
+  description: "Reported fit metadata; no fit evaluator is defined by this ontology"
+  [function]:
+    type: string
+  <coefficient>:
+    type: array
+    items:
+      $ref: <_fit_coefficient>
+  <validity>:
+    [lower_argument]:
+      description: "Reported lower fit argument bound, projected from Elo; not inferred from the sample grid"
+      type: float
+    [upper_argument]:
+      description: "Reported upper fit argument bound, projected from Ehi"
+      type: float
+    [unit]:
+      type: string
+
+<_tabulated_curve>:
+  description: "Shared one-argument curve contents composed by concrete quantities; no time-series inheritance"
+  <argument>:
+    $ref: <_curve_argument>
+  [name]:
+    description: "Native value-column label"
+    type: string
+  [unit]:
+    description: "Native value unit; values are not silently converted to a universal unit"
+    type: string
+  [data_from_fit]:
+    description: "Source flag stating whether the table was generated from a fit; absent means unspecified"
+    type: boolean
+  $ref: <fit>
+  <points>:
+    type: array
+    items:
+      [argument]:
+        type: float
+      [value]:
+        type: float
+      <uncertainty>:
+        $ref: <_absolute_uncertainty>
+
+<cross_section>:
+  description: "Reported collisional cross-section curve; native units and process definition retained"
+  $ref: <_tabulated_curve>
+
+<rate_coefficient>:
+  description: "Reported collisional rate-coefficient curve; its distribution and coordinate meaning require source evidence"
+  $ref: <_tabulated_curve>
+
+<collision_dataset>:
+  $is: <reference_data>
+  description: "One independently identified CollisionDB dataset for a stated reaction and numerical quantity"
+  $ref: <process>
+  $ref: <cross_section>
+  $ref: <rate_coefficient>
+  [description]:
+    type: string
+  <uncertainty>:
+    [relative_percent]:
+      description: "Source-reported relative uncertainty percentage; explicit point uncertainty takes precedence at that point"
+      type: float
+      unit: "%"
+
 <ionospheric_summary>:
   $is: <summary>
   description: "Already reported ionospheric aggregates; each quantity retains its statistic, units and derivation provenance"
@@ -440,3 +603,4 @@
   $refs: <observation>@{producer}:{channel}
   $refs: <time_series>@{producer}:{channel}
   $refs: <summary>@{producer}:{channel}
+  $refs: <reference_data>@{producer}:{channel}

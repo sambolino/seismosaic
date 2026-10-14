@@ -74,3 +74,9 @@ GOES XRS uses a shared irradiance structure under a parameterized wavelength-ban
 The shared model retains event-estimate instants, characteristic station/time context, planetary index intervals, and the provenance and quality of each. Output edges carry supported assertion evidence and provenance. Selection patterns, comparison windows and analysis instructions stay in the workflow layer. Membership, interval overlap, derivation and catalogue identity are separate meanings.
 
 Neither a shared `quality.status` path nor a shared UTC representation makes different source status vocabularies, spatial footprints or sampling supports equivalent. Standards alignment reduces repeated modelling within each family; scientific comparison criteria remain explicit domain decisions.
+
+## CollisionDB conventions
+
+The CollisionDB example follows its [native metadata conventions](https://db-amdis.org/collisiondb/submitting-data/) and [official client](https://github.com/IAEA-NDS/pycollisiondb), using pyvalem species/state notation and native IAEA process codes. It is not an XSAMS projection and claims no XSAMS validation. Reaction text, participant multiplicities, numerical columns/units, method, DOIs, uncertainties and fit metadata retain distinct scope. `M1.0` denotes metadata format, not scientific revision.
+
+The two-column reference curves compose a shared table container without time-series inheritance. Missing uncertainty is not zero, source fit bounds are not sampled extent or physical thresholds, and the rate coordinate E/eV does not establish temperature semantics. Import lineage, full bibliographic resolution, additional quality/fit fields and differential or multidimensional datasets remain outside this small projection; native source files are retained.

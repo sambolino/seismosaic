@@ -10,6 +10,7 @@ Develop a small semantic model for seismic and ionospheric data using the existi
 - Model scientific output. Keep selection patterns, comparison frames and analysis instructions in the workflow layer; do not embed them in this ontology.
 - Do not add runtime classes, an ontology parser or iterator, API adapters, orchestration, a DSL or statistical analysis without an explicit change of scope.
 - The fixed Kamchatka demo is now authorized: small provider projections, bounded live requests, a local HTML viewer and focused tests. Keep its request side hardcoded; this does not authorize a generic planner, ontology interpreter or analysis engine.
+- The fixed CollisionDB reference-data example is also authorized: two reviewed oxygen datasets through the official Python client, a source-faithful projection, cache replay and the shared viewer. No physical-model calculation is in scope.
 - Seismosaic defines its own structural root and record families; do not assume an Alertissimo Portfolio.
 - Keep source mappings distinct from the semantic vocabulary.
 - Keep provider query parameters in endpoints/ and response-to-output paths in mappings/. These are ordinary YAML descriptions, not an executable mapping DSL; mark unverified bindings explicitly.

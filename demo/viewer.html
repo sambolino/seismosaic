@@ -32,8 +32,8 @@
 </style>
 <header>
   <div class="eyebrow">Seismosaic / fixed live scenario</div>
-  <h1>Kamchatka, July–August 2025</h1>
-  <p>Source records around the USGS M8.8 mainshock. Every estimate, interval and quality flag keeps its own context.</p>
+  <h1 id="scenario-title">Kamchatka, July–August 2025</h1>
+  <p id="scenario-subtitle">Source records around the USGS M8.8 mainshock. Every estimate, interval and quality flag keeps its own context.</p>
   <div class="toolbar">
     <button class="primary" id="fetch">Fetch live study</button>
     <button id="export" disabled>Export study JSON</button>
@@ -46,21 +46,29 @@
     <h2>Retrieval coverage</h2>
     <div id="sources"><p>No run loaded yet.</p></div>
     <p id="when"></p>
-    <p>“No data reported” means no returned measurements. It does not establish a station outage or a physical null result.</p>
+    <p id="coverage-note">“No data reported” means no returned measurements. It does not establish a station outage or a physical null result.</p>
   </aside>
   <section class="panel">
     <div class="tree-head"><div><h2>study</h2><p>Qualified records · expandable JSON view</p></div><span id="record-count" class="hint"></span></div>
-    <div id="empty"><h2>Ready for one fixed experiment</h2><p>Fetch the catalogues and historical geophysical products,<br>then inspect the output here. Source failures remain visible.</p></div>
+    <div id="empty"><h2>Ready for one fixed experiment</h2><p id="empty-description">Fetch the catalogues and historical geophysical products,<br>then inspect the output here. Source failures remain visible.</p></div>
     <div id="study-tree" class="tree"></div>
     <details class="report-toggle"><summary>Run details: requests, access results and native flag definitions</summary><p>Workflow and retrieval information is separate from the scientific study.</p><div id="run-tree" class="tree"></div></details>
   </section>
 </main>
-<footer>Units follow the ontology: depth and hmF2 in km · foF2 in MHz · ap on the 2 nT scale · XRS irradiance in W m−2.<br>USGS / EMSC / GEOFON · GFZ Kp/ap · GIRO/DIDBase · NOAA/NCEI GOES-18 XRS.<br>GIRO data retain CC BY-NC-SA 4.0 and provider acknowledgement requirements. Selection and catalogue agreement do not establish causation or independent evidence.</footer>
+<footer id="scenario-footer">Units follow the ontology: depth and hmF2 in km · foF2 in MHz · ap on the 2 nT scale · XRS irradiance in W m−2.<br>USGS / EMSC / GEOFON · GFZ Kp/ap · GIRO/DIDBase · NOAA/NCEI GOES-18 XRS.<br>GIRO data retain CC BY-NC-SA 4.0 and provider acknowledgement requirements. Selection and catalogue agreement do not establish causation or independent evidence.</footer>
+<script id="presentation" type="application/json">/*PRESENTATION*/null</script>
 <script id="snapshot" type="application/json">/*SNAPSHOT*/null</script>
 <script>
 'use strict';
 let loaded = null;
 const $ = id => document.getElementById(id);
+let presentation = null;
+function present(info){
+  if(!info)return;
+  presentation=info;document.title='Seismosaic · '+info.title;
+  for(const [id,key] of [['scenario-title','title'],['scenario-subtitle','subtitle'],['coverage-note','coverage_note'],['empty-description','empty'],['scenario-footer','footer']])$(id).textContent=info[key];
+}
+present(JSON.parse($('presentation').textContent.replace('/*PRESENTATION*/','')));
 const scalar = value => typeof value === 'string' ? JSON.stringify(value) : String(value);
 function describe(value) {
   if (Array.isArray(value)) return `[ ${value.length} ${value.length===1?'item':'items'} ]`;
@@ -93,6 +101,8 @@ function preview(value,kind) {
   }
   if(kind==='creation')return attribution(value).join(' · ');
   if(kind==='provenance' && value.creation)return attribution(value.creation).join(' · ');
+  if(kind==='collision_dataset')return [value.identity?.source_id,value.process?.reaction,value.cross_section?'cross section':'rate coefficient'].filter(Boolean).join(' · ');
+  if(kind==='cross_section' || kind==='rate_coefficient')return [value.argument?.name+' / '+value.argument?.unit,'value / '+value.unit,value.data_from_fit===true?'fit-generated table':value.data_from_fit===false?'source table':'',value.points?.length+' points'].filter(Boolean).join(' · ');
   if(kind==='seismic_event'){
     const origin=value.origin?.find(x=>x.preferred);
     const mags=(value.origin||[]).flatMap(x=>x.magnitude||[]).concat(value.unassociated_magnitude||[]);
@@ -140,12 +150,14 @@ function coverage(key,source){
   if(source.indices)detail=Object.entries(source.indices).map(([n,s])=>n+': '+(s.points??s.status)+' intervals').join(' · ');
   if(source.stations){const ok=source.stations.filter(s=>s.status==='ok').length;const absent=source.stations.filter(s=>s.status==='no_data_reported').length;const failed=source.stations.filter(s=>s.status==='failed').length;detail=`${ok}/${source.stations.length} sites returned measurements · ${absent} no data reported`+(failed?` · ${failed} failed`:'');}
   if(source.days)detail=source.days.filter(d=>d.status==='ok').length+'/'+source.days.length+' daily GOES products';
+  if('datasets' in source)detail=source.datasets+' reference datasets'+(source.missing_ids?.length?' · missing '+source.missing_ids.join(', '):'')+(source.attempt?.cached?' · cached archive':'');
   const box=document.createElement('div');box.className='source';
   const title=document.createElement('strong');title.textContent=key;
   const status=document.createElement('span');status.className='badge '+source.status;status.textContent=source.status.replaceAll('_',' ');
   const line=document.createElement('p');line.textContent=detail||source.error||'See run details';box.append(title,status,line);return box;
 }
 function render(document){
+  present(document.run.presentation);
   loaded=document;$('empty').hidden=true;$('export').disabled=false;
   $('study-tree').replaceChildren(node('study',document.study));$('run-tree').replaceChildren(node('run',document.run));
   $('sources').replaceChildren(...Object.entries(document.run.sources).map(([key,source])=>coverage(key,source)));
@@ -169,13 +181,13 @@ $('fetch').addEventListener('click',async()=>{
 });
 $('export').addEventListener('click',()=>{
   const url=URL.createObjectURL(new Blob([JSON.stringify({study:loaded.study},null,2)],{type:'application/json'}));
-  const link=document.createElement('a');link.href=url;link.download='kamchatka-study.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  const link=document.createElement('a');link.href=url;link.download=presentation?.export_name||'kamchatka-study.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 });
 const snapshot=JSON.parse($('snapshot').textContent.replace('/*SNAPSHOT*/',''));
 if(snapshot){render(snapshot);$('fetch').hidden=true;$('live-status').textContent=snapshot.run.reuse_cache?'Saved result · cached responses reused':'Saved result from live source requests';}
 else if(location.protocol==='http:'||location.protocol==='https:'){
   read('/api/study').then(document=>{if(document)render(document);}).catch(()=>{});
   read('/api/status').then(status=>{if(status.reuse_cache)$('fetch').textContent='Build using cached responses';if(status.messages.length)$('live-status').textContent=status.messages.at(-1);if(status.status==='running'){$('fetch').disabled=true;poll();}}).catch(error=>{$('error').textContent=error.message;});
-}else{$('fetch').disabled=true;$('live-status').textContent='Start python -m demo.kamchatka to fetch sources.';}
+}else{$('fetch').disabled=true;$('live-status').textContent='Start '+(presentation?.command||'python -m demo.kamchatka')+' to fetch sources.';}
 </script>
 </html>

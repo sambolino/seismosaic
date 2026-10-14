@@ -90,3 +90,9 @@ GOES is complementary solar context. GNSS TEC and LXCat remain outside this firs
 ## Fixed-scenario selection edges
 
 The Kamchatka demo can select whole catalogue entries and series for comparison, so `--selected_for_comparison_with-->` is now allowed on the generic `event` and `time_series` forms as well as observations. Its basis and assertion provenance describe the output connection. Query windows remain in the demo workflow/run report, not a new ontology frame. The demo's JSON arrays and target locators are storage conventions, not metamodel syntax extensions.
+
+## CollisionDB reference records
+
+The approved addition is a separate fixed two-dataset oxygen example through the official Python client. BEAMDB, ACol and MolD are not included. `collision_dataset` specializes `reference_data`; concrete quantities compose `_tabulated_curve`. Native coordinate labels remain fields while their interpretation is unresolved; no temperature parameter binding is invented from E/eV.
+
+One record per source dataset ID preserves independent method/citation metadata even when reactions agree. Source reaction text coexists with pyvalem-parsed participants/states. Database insertion time is separate from creation, updates and observation time. Relative and explicit point uncertainty stay distinct; client-initialized zeros are not source claims. Fit validity is separate from sampled range; fit metadata is represented without execution. Collection membership requires no fabricated comparison or derivation edge.

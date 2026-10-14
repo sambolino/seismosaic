@@ -1,0 +1,35 @@
+source: collisiondb
+channel: collisiondb-api
+producer: collisiondb
+documentation: https://github.com/IAEA-NDS/pycollisiondb
+format_documentation: https://db-amdis.org/collisiondb/submitting-data/
+access: Official Python client over anonymous HTTPS; no manual archive steps
+coverage: Only two atomic-oxygen ionization reference datasets reviewed here; not a complete ionospheric chemistry collection.
+client: {package: pycollisiondb, tested_version: 0.1.6, import: pycollisiondb.pycollisiondb.PyCollision}
+endpoints:
+  - id: collisiondb.datasets
+    library_call: PyCollision.get_datasets
+    base_url: https://db-amdis.org/collisiondb/
+    underlying_api: https://db-amdis.org/collisiondb/api/
+    parameters:
+      query.pks: {type: array, required: true, reviewed_values: [110743, 111118], meaning: Fixed provider primary keys}
+      DB_URL: {type: string, meaning: Explicit service base URL}
+      DATA_DIR: {type: string, meaning: Managed storage used internally by the client}
+    responses:
+      - {representation: PyCollision.datasets dictionary of PyCollDataSet objects, mapping: collisiondb.datasets.python}
+    examples:
+      - query: {pks: [110743, 111118]}
+  - id: collisiondb.references
+    library_call: PyCollision.resolve_refs
+    underlying_api: https://db-amdis.org/collisiondb/refs/api/
+    status: HTTP 404 during review; not called by this demo
+access_constraints:
+  - The client automatically queries the API and retrieves/extracts a query-specific ZIP.
+  - Retrieval has a 120-second worker deadline. Archives are checked against 4 MB compressed/expanded limits before extraction; compressed size is checked after transfer.
+  - Species/state queries follow pyvalem; zero results for an exact query do not prove database-wide absence.
+  - Initial e-/N2, e-/O2, e-/NO+, e-/O2+ and O+/N2 or O+/O2 count queries returned zero; e-/O returned two datasets.
+  - D110743 labels its rate coordinate E in eV; physical distribution/temperature interpretation remains unverified.
+attribution:
+  licence: CC BY 4.0
+  reference: https://doi.org/10.3390/atoms12040020
+  original_publications: [https://doi.org/10.2172/6679044, https://doi.org/10.1063/1.555809]

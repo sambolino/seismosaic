@@ -14,6 +14,7 @@ These files make the reviewed interfaces concrete. They remain ordinary YAML des
 | GFZ | [gfz.yaml](../endpoints/gfz.yaml) | [JSON](../mappings/gfz.yaml) | Aligned Kp or ap arrays and their complete three-hour intervals |
 | GIRO/DIDBase | [giro.yaml](../endpoints/giro.yaml) | [historical form](../mappings/giro-form.yaml), [pending latest-route bindings](../mappings/giro.yaml) | Historical POST and Version 1.1 table inspected; latest GET remains a separate unbound route |
 | GOES XRS | [goes.yaml](../endpoints/goes.yaml) | [recent and historical profiles](../mappings/goes.yaml) | Historical NetCDF fields/support/flags reviewed; recent-feed operational producer still unresolved |
+| CollisionDB | [collisiondb.yaml](../endpoints/collisiondb.yaml) | [Python objects](../mappings/collisiondb.yaml) | Two oxygen reference datasets through pycollisiondb 0.1.6; native tables, fit metadata and DOI citations |
 
 The shared QuakeML mapping takes catalogue producer, channel and URL from the selected USGS/EMSC/GEOFON endpoint. It nests magnitudes under their explicitly associated origins while retaining their own IDs, metadata and event-wide preferences. Missing/unresolved origin associations use `unassociated_magnitude`; JSON summary preference alone does not establish association. All six CreationInfo fields are retained independently at each reported resource scope. An XML publicID is not assumed equal to a service lookup ID. JSON summaries and XML bulletins are alternative representations, not additional independent evidence.
 
@@ -46,3 +47,9 @@ Dataset attribution belongs to the provider. The endpoint descriptions link know
 On 2026-10-13, bounded anonymous requests returned HTTP 200 for the USGS/EMSC JSON and XML examples, GFZ Kp/ap and the recent GOES feed. Both event lookup responses were single Features; the bounded catalogue queries returned FeatureCollections. USGS returned one origin/magnitude; EMSC returned ten of each. GFZ returned two aligned starts, including the requested end label. GOES returned the reviewed band/correction keys, including the provider spelling `electron_contaminaton`.
 
 These checks cover representative payloads, not full schema validation, completeness or continuous access. The subsequent Kamchatka run also inspected GEOFON QuakeML, a successful historical GIRO POST response and GOES daily NetCDF contents. Its 93 output records and separate retrieval report can now be inspected in the [live demo](kamchatka_demo.md). The latest GIRO GET profile and operational GOES producer attribution remain separate unresolved questions.
+
+## CollisionDB Python access
+
+The separate [reference example](collisiondb_demo.md) uses a fixed library call and the shared viewer. It carries native argument/value units as data, unlike the fixed-unit geophysical quantities above. E on a rate curve is not relabelled as temperature. One qualified record represents each dataset ID, without observation time or location. Retrieval/client/schema versions stay in `run`; insertion time and DOI citations belong in provenance.
+
+Live retrieval returned D110743 and D111118, each with 50 points, fit-generated tables and a reported 10% uncertainty. The bibliography endpoint returned HTTP 404, so source DOIs are retained without invented authors/titles. This adds neither a generic adapter nor metamodel syntax.
