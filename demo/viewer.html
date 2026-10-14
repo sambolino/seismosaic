@@ -31,6 +31,7 @@
   .visual-note{font-size:13px}.figure-card{border:1px solid var(--line);border-radius:7px;margin:18px 0;padding:14px}
   .figure-card h3{font-size:15px;margin:0 0 8px}.figure-frame{overflow:auto;background:white;border:1px solid #edf0f3}.figure-frame.enlarged{max-height:1000px}
   .figure-frame img{display:block;width:100%;height:auto}.figure-frame.enlarged img{width:180%;max-width:none}
+  .spatial-image{cursor:crosshair}.spatial-choices{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}.spatial-list{margin:12px 0}.spatial-list>summary{cursor:pointer;font-size:13px}
   .figure-tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}.figure-tools a{border:1px solid var(--line);padding:7px 12px;border-radius:5px;text-decoration:none;font-size:13px}
   .figure-tools button,.figure-tools select{font:inherit;font-size:13px;padding:7px 10px}.figure-tools select{min-width:0;max-width:100%;width:100%}
   .figure-tools label{flex:1 1 260px}.figure-caption{font-size:12px}.coverage-scroll{overflow:auto}.coverage-table{border-collapse:collapse;width:100%;font-size:12px;margin:12px 0}
@@ -188,6 +189,35 @@ function inspectRecord(locator){
   $('inspection-title').textContent=key+(record.identity?.source_id?' · '+record.identity.source_id:'');
   $('inspection-tree').replaceChildren(node(key,record));$('inspection').hidden=false;$('inspection').open=true;$('inspection').scrollIntoView({behavior:'smooth',block:'start'});
 }
+function inspectSpatial(entry){
+  if(entry.locator){inspectRecord(entry.locator);return;}
+  const locators=entry.locators||[];
+  const report=entry.run_locator?loaded.run.sources?.giro?.stations?.[entry.run_locator.station_index]:null;
+  $('inspection-title').textContent=entry.label+' · acquisition and retrieval';
+  const items=[];
+  if(report)items.push(node('run.sources.giro.stations['+entry.run_locator.station_index+']',report));
+  for(const locator of locators){const {key,record}=recordFor(locator);if(record)items.push(node(key,record));}
+  if(!items.length)items.push(element('p','No linked source record or retrieval entry is available.'));
+  $('inspection-tree').replaceChildren(...items);$('inspection').hidden=false;$('inspection').open=true;$('inspection').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function spatialControls(figure,image,card){
+  const entries=figure.spatial_entries||[];
+  const choices=element('div',undefined,'spatial-choices');choices.setAttribute('aria-live','polite');
+  image.classList.add('spatial-image');
+  image.addEventListener('click',event=>{
+    const bounds=image.getBoundingClientRect(),x=event.clientX-bounds.left,y=event.clientY-bounds.top;
+    const indices=[...new Set((figure.hotspots||[]).filter(hit=>Math.hypot(x-hit.x*bounds.width,y-hit.y*bounds.height)<=12).map(hit=>hit.entry))];
+    choices.replaceChildren(element('span',indices.length?'Nearby records:':'No marker nearby. Use the spatial list for keyboard access.'));
+    for(const index of indices){const entry=entries[index];if(!entry)continue;const button=element('button',entry.label+' · '+entry.status.replaceAll('_',' '));button.addEventListener('click',()=>inspectSpatial(entry));choices.append(button);}
+  });
+  const details=element('details',undefined,'spatial-list');details.append(element('summary','Spatial records and retrieval outcomes · '+entries.length));
+  const scroll=element('div',undefined,'coverage-scroll'),table=element('table',undefined,'coverage-table'),head=element('thead'),headers=element('tr');
+  ['Source record / site','Latitude','Longitude','Position / retrieval status'].forEach(text=>headers.append(element('th',text)));head.append(headers);table.append(head);
+  const body=element('tbody');
+  for(const entry of entries){const row=element('tr'),name=element('td'),button=element('button',entry.label);button.addEventListener('click',()=>inspectSpatial(entry));name.append(button);row.append(name);
+    [entry.position.latitude+'°',entry.position.longitude+'°',entry.status.replaceAll('_',' ')+(entry.error?' · '+entry.error:'')].forEach(value=>row.append(element('td',value)));body.append(row);}
+  table.append(body);scroll.append(table);details.append(scroll);card.append(choices,details);
+}
 function recordPicker(locators){
   const label=element('label','Inspect source record '),select=element('select');select.setAttribute('aria-label','Inspect source record');
   select.append(element('option','Choose a record…'));select.options[0].value='';
@@ -213,6 +243,7 @@ function renderVisuals(visuals){
     const tools=element('div',undefined,'figure-tools'),zoom=element('button','Enlarge');zoom.addEventListener('click',()=>{const on=frame.classList.toggle('enlarged');zoom.textContent=on?'Fit width':'Enlarge';zoom.setAttribute('aria-pressed',String(on));});zoom.setAttribute('aria-pressed','false');tools.append(zoom);
     for(const format of ['svg','png']){const file=figure.files[format],link=element('a','Download '+format.toUpperCase());link.href='data:'+(format==='svg'?'image/svg+xml':'image/png')+';base64,'+file.base64;link.download=file.filename;tools.append(link);}
     if(figure.locators?.length)tools.append(recordPicker(figure.locators));card.append(tools,element('p',figure.caption,'figure-caption'));
+    if(figure.spatial_entries)spatialControls(figure,image,card);
     if(figure.omissions?.length)card.append(element('p',figure.omissions.map(item=>item.panel+': '+item.missing_or_invalid_time+' missing values/times; '+item.nonpositive_on_log_axis+' nonpositive values omitted from logarithmic display').join(' · '),'figure-caption'));
     if(figure.citations?.length)card.append(element('p','Source DOI: '+figure.citations.join(' · '),'figure-caption'));host.append(card);
   }

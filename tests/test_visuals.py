@@ -45,6 +45,46 @@ def fixture():
 
 
 class VisualTests(unittest.TestCase):
+    def test_geography_date_line_outcomes_and_no_invented_positions(self):
+        document = fixture()
+        document['run']['request'].update({'anchor': {'latitude': 52.4948, 'longitude': 160.2395},
+            'ionospheric': {'radius_km': 3000}})
+        document['run']['request']['seismic']['radius_km'] = 500
+        for key in ['seismic_event@usgs:usgs-fdsn', 'seismic_event@emsc:emsc-fdsn']:
+            document['study'][key][0]['origin'][0]['position'] = {'latitude': 52.5, 'longitude': 160.25}
+        document['run']['sources']['giro']['stations'] = [
+            {'code': 'AA', 'latitude': 60, 'longitude': -175, 'status': 'ok'},
+            {'code': 'BB', 'latitude': 55, 'longitude': 178, 'status': 'no_data_reported'},
+            {'code': 'CC', 'latitude': 50, 'longitude': 170, 'status': 'failed', 'error': 'timeout'},
+            {'code': 'DD', 'status': 'failed'}]
+        series = document['study']['ionospheric_series@station-aa:giro-fastchar-form'][0]
+        series['provenance'] = {'acquisition': {'station': {'identity': {'source_id': 'AA'},
+            'position': {'latitude': 60, 'longitude': -175}}}}
+        before = copy.deepcopy(document)
+        data = visuals.geographic_data(document)
+        self.assertEqual(data['rings'], [{'family': 'seismic', 'radius_km': 500}, {'family': 'ionospheric', 'radius_km': 3000}])
+        catalogues = [entry for entry in data['entries'] if entry['kind'] == 'catalogue']
+        self.assertEqual(len(catalogues), 2)  # Identical positions still represent separate reports.
+        self.assertEqual(sum(entry['anchor'] for entry in catalogues), 1)
+        sites = {entry['label']: entry for entry in data['entries'] if entry['kind'] == 'station'}
+        self.assertEqual(sites['GIRO BB']['status'], 'no_data_reported')
+        self.assertNotIn('locator', sites['GIRO BB'])  # A retrieval result is not a fabricated measurement.
+        self.assertEqual(sites['GIRO CC']['run_locator'], {'station_index': 2})
+        self.assertEqual(len(sites['GIRO AA']['locators']), 1)
+        self.assertEqual(data['missing']['station_positions'], 1)
+        across_date_line = {'latitude': 60, 'longitude': -175}
+        x, y = visuals.project(across_date_line, data['centre'])
+        self.assertAlmostEqual((x*x+y*y)**.5, model.distance(52.4948, 160.2395, 60, -175), places=6)
+        self.assertGreater(x, 0)
+        self.assertEqual(visuals.project(data['centre'], data['centre']), (0, 0))
+        self.assertIsNone(visuals.coordinates({'latitude': True, 'longitude': 0}))
+        self.assertEqual(visuals.coordinates({'latitude': 0, 'longitude': 0}), {'latitude': 0, 'longitude': 0})
+        self.assertEqual(document, before)
+        del document['run']['request']['anchor']
+        self.assertEqual(visuals.geographic_data(document)['rings'], [])  # Do not recenter request rings on a changed origin.
+        self.assertIsNone(visuals.geographic_data({'study': {'collision_dataset@collisiondb:collisiondb-api': [reference()]},
+            'run': {'sources': {}, 'request': {'pks': [111118]}}})['centre'])
+
     def test_support_zero_missing_and_log_exclusions(self):
         document = fixture()
         before = copy.deepcopy(document)
@@ -86,6 +126,10 @@ class VisualTests(unittest.TestCase):
         except ImportError:
             self.skipTest("Install demo/requirements.txt for figure export checks")
         document = fixture()
+        document['run']['request'].update({'anchor': {'latitude': 52.4948, 'longitude': 160.2395},
+            'ionospheric': {'radius_km': 3000}})
+        document['run']['request']['seismic']['radius_km'] = 500
+        document['study']['seismic_event@usgs:usgs-fdsn'][0]['origin'][0]['position'] = {'latitude': 52.5, 'longitude': 160.25}
         before = copy.deepcopy(document)
         with tempfile.TemporaryDirectory() as tmp, patch("urllib.request.urlopen", side_effect=AssertionError("Unexpected network")), patch("demo.kamchatka.request", side_effect=AssertionError("Unexpected retrieval")):
             root = Path(tmp)
@@ -95,7 +139,11 @@ class VisualTests(unittest.TestCase):
             kamchatka.save(document, root, write_science=False)
             result = document["visuals"]
             self.assertEqual(result["status"], "ok")
-            self.assertEqual(len(result["figures"]), 2)
+            self.assertEqual(len(result["figures"]), 3)
+            geography = next(figure for figure in result['figures'] if figure['title'] == 'Geographic context')
+            self.assertEqual(len(geography['hotspots']), 2)
+            for hit in geography['hotspots']:
+                self.assertTrue(0 <= hit['x'] <= 1 and 0 <= hit['y'] <= 1)
             for figure in result["figures"]:
                 self.assertTrue((root / "figures" / figure["files"]["png"]["filename"]).read_bytes().startswith(b"\x89PNG"))
                 self.assertIn(b"<svg", (root / "figures" / figure["files"]["svg"]["filename"]).read_bytes())
@@ -103,6 +151,10 @@ class VisualTests(unittest.TestCase):
             self.assertEqual((root / "run.json").read_bytes(), native_run)
             self.assertEqual({key: document[key] for key in ["study", "run"]}, before)
             self.assertIn("visuals", visuals.load(copy.deepcopy(before), root))
+            legacy = dict(result, version=1)
+            (root / 'visuals.json').write_text(json.dumps(legacy))
+            self.assertNotIn('visuals', visuals.load(copy.deepcopy(before), root))
+            (root / 'visuals.json').write_text(json.dumps(result))
             before["run"]["status"] = "changed"
             self.assertNotIn("visuals", visuals.load(before, root))
 
