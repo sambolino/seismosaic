@@ -4,11 +4,9 @@ This first runtime experiment fetches a historical case from live services and d
 
 ## Run locally
 
-Python 3.10+ is required. NetCDF4 is the one added runtime dependency and installs its numerical dependencies. From the repository root:
+Python 3.10+ is required. NetCDF4 reads GOES products; pycollisiondb retrieves the fixed oxygen reference inputs. From the repository root, using your active Python environment:
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
 python -m pip install -r demo/requirements.txt
 python -m demo.kamchatka
 ```
@@ -23,14 +21,14 @@ python -m demo.kamchatka --once
 
 This writes `build/kamchatka/index.html`, `study.json`, `run.json` and cached responses. Open the HTML directly in a browser. The HTML embeds the result and needs no external scripts or CDN. Generated scientific data and local environments are ignored by Git. A future run can explicitly reuse retained bodies with `--reuse-cache`; every reused response is labelled cached and retains its original fetch time. Without that flag, requests are live.
 
-After the origin/magnitude nesting change, rebuild existing saved output:
+After the output-layout changes, rebuild existing saved output:
 
 ```bash
 python -m demo.kamchatka --once --reuse-cache
 python -m demo.kamchatka --port 8765
 ```
 
-This renormalizes retained source bodies, recovering creation metadata absent from the old JSON; it does not guess attribution from that old output. The server declines to load older normalized snapshots and shows a rebuild notice. `run.output_version=2` identifies this demo output layout, not a metamodel version. Previously exported standalone files retain their original layout until regenerated.
+This renormalizes retained source bodies, recovering creation metadata absent from the old JSON; it does not guess attribution from that old output. The server declines to load older normalized snapshots and shows a rebuild notice. `run.output_version=3` identifies this demo output layout, not a metamodel version. Previously exported standalone files retain their original layout until regenerated.
 
 ## The fixed request
 
@@ -41,6 +39,7 @@ This renormalizes retained source bodies, recovering creation metadata absent fr
 | Ionospheric | Current GIRO station-list sites within 3000 km; foF2/hmF2, 15 July through 5 August |
 | Geomagnetic | GFZ definitive Kp and ap, 1 July through 5 August |
 | Solar | GOES-18 science-quality XRS avg1m, both bands, 15 July through 5 August; fixed daily v2-2-1 files |
+| Reference inputs | CollisionDB D110743 and D111118, oxygen electron-impact ionization; fixed IDs with no earthquake time/place filtering |
 
 All windows use UTC and half-open bounds: the named last calendar day is included in full. Requests are checked against returned timestamps/support; inclusive provider bounds do not change these selections. Catalogue thresholds use the supplied magnitude scales, not a conversion to a common Mw. A 1000-entry guard prevents claiming a possibly truncated catalogue query as complete.
 
@@ -54,7 +53,7 @@ Each record's `$edges` is a separate connection-plane representation. An edge ca
 
 The fixture explicitly associates the inspected EMSC mainshock ID `quakeml:eu.emsc/event/20250729_0000311` and GEOFON ID `smi:org.gfz-potsdam.de/geofon/gfz2025otqm` with the USGS anchor. It corroborates their reported time/location/magnitude before emitting `--same_event_as--`. This is a reviewed fixture association, with workflow assertion provenance. The code does not infer identity for all neighbours, merge alternative estimates across entries, infer independence, or declare causal relations. Other selected events and series use `--selected_for_comparison_with-->`.
 
-`run` is outside `study`. It holds the fixed request, HTTP/cache details, station/source access results and native GOES flag definitions. No comparison frame, query recipe or retrieval failure is inserted into the scientific ontology. `run.status=complete` means all source tasks finished successfully, including explicit no-data replies; it is not a scientific completeness claim. Partial source failures leave successful scientific records inspectable. Failure of the required anchor aborts the run.
+`run` is outside `study`. It holds the fixed request, HTTP/cache details, station/source access results and native GOES flag definitions. No comparison frame, query recipe or retrieval failure is inserted into the scientific ontology. `run.status=complete` means all source tasks finished successfully, including explicit no-data replies; it is not a scientific completeness claim. Partial source failures leave successful scientific records inspectable. Missing fixed CollisionDB IDs also mark the run partial. Failure of the required anchor aborts the run.
 
 ## Scientific details kept intact
 
@@ -77,3 +76,9 @@ python -m unittest discover -s tests -v
 Focused offline tests cover estimate nesting and independent preferences, absent/unresolved associations, all CreationInfo fields and scopes, duplicate-ID rejection, stale-output handling, units, interval-end selection, confidence special codes, missing versus zero values, NetCDF masks/flags, dateline coordinates, safe HTML embedding and cache labels. A live run is an integration check, not a deterministic unit test; source revisions and availability may change the result. The viewer builds branches lazily and pages long arrays without truncating the stored/exported data.
 
 This is an inspection scenario, not a correlation calculation. Cross-catalogue matching of the rest of the sequence, historical GIRO operating-status metadata, alternate archive versions and interpretation of solar/geomagnetic disturbances remain separate later work. The cited ionospheric/geomagnetic-triggering papers are not ingested as facts or encoded as findings.
+
+## Reference inputs in the same run
+
+Kamchatka now calls the same fixed CollisionDB collector as the standalone example. Each fresh default run retrieves the two reference datasets through the Python client and places them in `study.collision_dataset@collisiondb:collisiondb-api`; source status and receipts remain in `run.sources.collisiondb`. A reference-source failure preserves the other successful records. Inclusion asserts neither applicability nor actual model use, and creates no event/derivation edge.
+
+Reference curves declare X/Y metadata once and retain numeric X/Y sample pairs. Native units and the unresolved E/eV interpretation of the rate coordinate remain intact. The reference archive cache is under `build/kamchatka/collisiondb/raw/`. `--reuse-cache` prefers retained responses; a first combined rebuild still fetches CollisionDB if that cache does not exist. Older geophysical caches remain usable. Counts depend on returned provider data; the former captured 93-record count is not a live-run invariant.

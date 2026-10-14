@@ -14,7 +14,7 @@ from pathlib import Path
 from . import model
 
 HERE = Path(__file__).parent
-OUTPUT_VERSION = 2  # Demo snapshot layout, not a metamodel version.
+OUTPUT_VERSION = 3  # Demo snapshot layout, not a metamodel version.
 SEISMIC_START, SEISMIC_END = model.utc("2025-07-20T00:00:00Z"), model.utc("2025-08-13T00:00:00Z")
 CONTEXT_START, CONTEXT_END = model.utc("2025-07-15T00:00:00Z"), model.utc("2025-08-06T00:00:00Z")
 GEOMAG_START = model.utc("2025-07-01T00:00:00Z")
@@ -121,18 +121,22 @@ def selection_edge(anchor):
 
 
 def run(output, reuse=False, progress=print):
+    from . import collisiondb
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     study, report = {}, {"output_version": OUTPUT_VERSION, "started_at": now(), "reuse_cache": reuse, "scenario": "Kamchatka 2025 multi-source context",
                          "request": {"anchor": ANCHOR, "seismic": {"start": model.stamp(SEISMIC_START), "end": model.stamp(SEISMIC_END), "min_magnitude": 6, "radius_km": 500},
                                      "ionospheric": {"start": model.stamp(CONTEXT_START), "end": model.stamp(CONTEXT_END), "radius_km": 3000},
                                      "geomagnetic": {"start": model.stamp(GEOMAG_START), "end": model.stamp(CONTEXT_END)},
-                                     "solar": {"start": model.stamp(CONTEXT_START), "end": model.stamp(CONTEXT_END), "satellite": "GOES-18"}},
+                                     "solar": {"start": model.stamp(CONTEXT_START), "end": model.stamp(CONTEXT_END), "satellite": "GOES-18"},
+                                     "collisiondb": collisiondb.QUERY},
                          "sources": {}, "notes": ["All windows are UTC and half-open; Aug 5 and Aug 12 are included as full calendar days.",
                                                    "Catalogue selection uses reported magnitude types, with no magnitude conversion.",
                                                    "Only the reviewed mainshock entries receive identity edges; neighbours remain separate catalogue reports.",
                                                    "GIRO no-data does not establish station outage or absence of a physical anomaly.",
-                                                   "This study reports selected source data, not a correlation or causal finding."]}
+                                                   "This study reports selected source data, not a correlation or causal finding.",
+                                                   "CollisionDB records are fixed reference inputs, not observations of the earthquake. Study membership asserts no applicability or derivation.",
+                                                   "CollisionDB rate dataset D110743 retains its native E/eV coordinate; temperature/distribution interpretation remains unresolved."]}
     fetch = lambda url, params=None, method="GET": request(url, params, method, output, reuse)
     progress("Fetching the USGS anchor")
     uri, channel = CATALOGUES["usgs"]
@@ -238,8 +242,13 @@ def run(output, reuse=False, progress=print):
             solar_report["status"] = "partial"
         solar_report["days"].append(detail)
     report["sources"]["goes"] = solar_report
+    reference_records, reference_report = collisiondb.collect(output / "collisiondb", reuse, progress)
+    if reference_records:
+        study[collisiondb.PATH] = reference_records
+    report["sources"]["collisiondb"] = reference_report
     report["finished_at"] = now()
-    report["status"] = "complete" if all(s["status"] in ["ok", "no_data"] for s in report["sources"].values()) else "partial"
+    report["status"] = "complete" if (all(s["status"] in ["ok", "no_data"] for s in report["sources"].values())
+                                      and not reference_report.get("missing_ids")) else "partial"
     report["record_count"] = sum(len(records) for records in study.values())
     document = {"study": study, "run": report}
     save(document, output)

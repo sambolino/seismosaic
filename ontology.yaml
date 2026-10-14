@@ -480,19 +480,28 @@
     description: "Reported collision energy reference, such as target or com; unrelated to workflow comparison frames"
     type: string
 
-<curve_argument>:
+<axis>:
+  description: "Numerical table axis metadata; role alone does not establish a physical quantity or interpretation"
   [name]:
-    description: "Native coordinate label; E in eV on a rate curve is not automatically relabelled as temperature"
+    description: "Native column label; E in eV on a rate curve is not automatically relabelled as temperature"
     type: string
   [unit]:
     type: string
 
+<X>:
+  $is: <axis>
+  description: "Independent coordinate axis of this one-argument curve"
+
+<Y>:
+  $is: <axis>
+  description: "Dependent value axis; the enclosing concrete quantity supplies its scientific meaning"
+
 <absolute_uncertainty>:
   [lower]:
-    description: "Reported lower absolute uncertainty magnitude in the enclosing curve's value unit"
+    description: "Reported lower absolute uncertainty magnitude in the enclosing curve's Y.unit"
     type: float
   [upper]:
-    description: "Reported upper absolute uncertainty magnitude in the enclosing curve's value unit"
+    description: "Reported upper absolute uncertainty magnitude in the enclosing curve's Y.unit"
     type: float
 
 <fit_coefficient>:
@@ -522,14 +531,8 @@
 
 <_tabulated_curve>:
   description: "Shared one-argument curve contents composed by concrete quantities; no time-series inheritance"
-  <argument>:
-    $ref: <_curve_argument>
-  [name]:
-    description: "Native value-column label"
-    type: string
-  [unit]:
-    description: "Native value unit; values are not silently converted to a universal unit"
-    type: string
+  $ref: <X>
+  $ref: <Y>
   [data_from_fit]:
     description: "Source flag stating whether the table was generated from a fit; absent means unspecified"
     type: boolean
@@ -537,9 +540,11 @@
   <points>:
     type: array
     items:
-      [argument]:
+      [X]:
+        description: "Sample coordinate in the enclosing curve's X.unit"
         type: float
-      [value]:
+      [Y]:
+        description: "Sample ordinate in the enclosing curve's Y.unit"
         type: float
       <uncertainty>:
         $ref: <_absolute_uncertainty>

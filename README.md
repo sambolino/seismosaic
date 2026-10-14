@@ -28,7 +28,7 @@ Named quantities such as foF2, hmF2, Kp and ap compose shared scalar contents wh
 
 USGS, EMSC and GEOFON supply earthquake catalogue entries; GFZ supplies Kp/ap intervals. The fixed Kamchatka demo also retrieves ionogram-derived foF2/hmF2 through GIRO's historical form and GOES-18 science-quality XRS daily products. Source coverage, missing values and product context remain explicit.
 
-The root also collects `reference_data`, specialized as `collision_dataset`. Its cross-section/rate curves compose shared table contents and retain native coordinates, units, uncertainty, citations and fit metadata. These physical reference inputs have no Earth-observation time axis; no model calculation or Kamchatka association is asserted.
+The root also collects `reference_data`, specialized as `collision_dataset`. Its cross-section/rate curves compose shared table contents, declare X/Y axes and retain native coordinates, units, uncertainty, citations and fit metadata. The fixed Kamchatka run collects these reference inputs alongside the event and geophysical records, with separate source results. These physical reference inputs have no Earth-observation time axis; no model calculation or Kamchatka association is asserted.
 
 The short-visit work is to refine this fragment with the host, review a small number of source mappings and record unresolved questions. A small fixed-request runtime demo now tests these output declarations. There is no generic planner, ontology interpreter, DSL, statistical analysis or correlation result.
 

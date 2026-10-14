@@ -13,7 +13,7 @@ from pathlib import Path
 from . import kamchatka, model
 
 CLIENT_VERSION = "0.1.6"
-OUTPUT_VERSION = 1  # This example's saved-output layout, not a metamodel version.
+OUTPUT_VERSION = 2  # This example's saved-output layout, not a metamodel version.
 DATASET_IDS = (110743, 111118)
 QUERY = {"pks": list(DATASET_IDS)}
 BASE_URL = "https://db-amdis.org/collisiondb/"
@@ -74,7 +74,7 @@ def project_dataset(dataset):
         x, y = finite(dataset.x[index]), finite(dataset.y[index])
         if x != finite(fields[0]) or y != finite(values[0]):
             raise ValueError("Library arrays differ from the retained source table")
-        point = {"argument": x, "value": y}
+        point = {"X": x, "Y": y}
         if len(values) > 1:
             lower = finite(values[1])
             upper = finite(values[-1])
@@ -82,9 +82,9 @@ def project_dataset(dataset):
                 raise ValueError("Negative absolute uncertainty")
             point["uncertainty"] = {"lower": lower, "upper": upper}
         points.append(point)
-    if any(b["argument"] <= a["argument"] for a, b in zip(points, points[1:])):
+    if any(b["X"] <= a["X"] for a, b in zip(points, points[1:])):
         raise ValueError("Coordinate grid is not strictly increasing")
-    if any(p["value"] < 0 for p in points):
+    if any(p["Y"] < 0 for p in points):
         raise ValueError("Negative collision quantity")
     provenance = model.provenance("collisiondb", "collisiondb-api", BASE_URL + "api/")
     if metadata.get("method"):
@@ -117,8 +117,8 @@ def project_dataset(dataset):
         if percent < 0:
             raise ValueError("Negative relative uncertainty")
         record["uncertainty"] = {"relative_percent": percent}
-    curve = {"argument": {"name": columns[0]["name"], "unit": columns[0]["units"]},
-             "name": columns[1]["name"], "unit": columns[1]["units"], "points": points}
+    curve = {"X": {"name": columns[0]["name"], "unit": columns[0]["units"]},
+             "Y": {"name": columns[1]["name"], "unit": columns[1]["units"]}, "points": points}
     # An axis named E in eV is not sufficient evidence to relabel a rate curve as T.
     if "data_from_fit" in metadata:
         if not isinstance(metadata["data_from_fit"], bool):
@@ -238,6 +238,21 @@ def fetch(output, reuse=False):
     return json.loads((Path(output) / "raw" / "worker-result.json").read_text())
 
 
+def collect(output, reuse=False, progress=print):
+    """Collect the same fixed records for either study; do not write a study here."""
+    progress("Retrieving the two fixed oxygen datasets through pycollisiondb")
+    try:
+        result = fetch(output, reuse)
+        records = result["records"]
+        returned = {record["identity"]["source_id"] for record in records}
+        missing = sorted({"D" + str(pk) for pk in DATASET_IDS} - returned)
+        status = "no_data" if not records else "partial" if missing else "ok"
+        return records, {"status": status, "datasets": len(records), "missing_ids": missing,
+                         "attempt": result["receipt"], "metadata_versions": result["metadata_versions"]}
+    except (OSError, ValueError, KeyError, RuntimeError) as error:
+        return [], {"status": "failed", "error": str(error)}
+
+
 def run(output, reuse=False, progress=print):
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
@@ -251,22 +266,11 @@ def run(output, reuse=False, progress=print):
                         "DOI citations are supplied by each dataset. The client's separate bibliography-resolution route returned HTTP 404 during review.",
                         "Database insertion time, metadata schema version and archive generation time are distinct from physical observation time and dataset revision."]}
     study = {}
-    progress("Retrieving the two fixed oxygen datasets through pycollisiondb")
-    try:
-        result = fetch(output, reuse)
-        records = result["records"]
-        returned = {record["identity"]["source_id"] for record in records}
-        missing = sorted({"D" + str(pk) for pk in DATASET_IDS} - returned)
-        source_status = "no_data" if not records else "partial" if missing else "ok"
-        if records:
-            study[PATH] = records
-        report["sources"]["collisiondb"] = {"status": source_status, "datasets": len(records),
-                                             "missing_ids": missing, "attempt": result["receipt"],
-                                             "metadata_versions": result["metadata_versions"]}
-        report["status"] = "partial" if missing else "complete"
-    except (OSError, ValueError, KeyError, RuntimeError) as error:
-        report["sources"]["collisiondb"] = {"status": "failed", "error": str(error)}
-        report["status"] = "failed"
+    records, source = collect(output, reuse, progress)
+    if records:
+        study[PATH] = records
+    report["sources"]["collisiondb"] = source
+    report["status"] = "failed" if source["status"] == "failed" else "partial" if source.get("missing_ids") else "complete"
     report.update({"finished_at": kamchatka.now(), "record_count": sum(len(items) for items in study.values())})
     document = {"study": study, "run": report}
     kamchatka.save(document, output)
