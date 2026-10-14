@@ -82,3 +82,7 @@ This is an inspection scenario, not a correlation calculation. Cross-catalogue m
 Kamchatka now calls the same fixed CollisionDB collector as the standalone example. Each fresh default run retrieves the two reference datasets through the Python client and places them in `study.collision_dataset@collisiondb:collisiondb-api`; source status and receipts remain in `run.sources.collisiondb`. A reference-source failure preserves the other successful records. Inclusion asserts neither applicability nor actual model use, and creates no event/derivation edge.
 
 Reference curves declare X/Y metadata once and retain numeric X/Y sample pairs. Native units and the unresolved E/eV interpretation of the rate coordinate remain intact. The reference archive cache is under `build/kamchatka/collisiondb/raw/`. `--reuse-cache` prefers retained responses; a first combined rebuild still fetches CollisionDB if that cache does not exist. Older geophysical caches remain usable. Counts depend on returned provider data; the former captured 93-record count is not a live-run invariant.
+
+## Figures and input coverage
+
+The viewer now includes [offline study figures](visuals.md): temporal context when present, separate reference curves, input coverage and record inspection links. New runs create PNG/SVG exports; existing output can be refreshed with `python -m demo.visuals --output build/kamchatka` without source requests. Scientific records and source/run semantics remain unchanged. Visualization metadata has its own sidecar version/fingerprint.

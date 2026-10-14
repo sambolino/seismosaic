@@ -273,6 +273,7 @@ def run(output, reuse=False, progress=print):
     report["status"] = "failed" if source["status"] == "failed" else "partial" if source.get("missing_ids") else "complete"
     report.update({"finished_at": kamchatka.now(), "record_count": sum(len(items) for items in study.values())})
     document = {"study": study, "run": report}
+    progress("Building reference figures from the assembled study; no additional source requests")
     kamchatka.save(document, output)
     progress("Finished: " + report["status"] + "; " + str(report["record_count"]) + " reference records")
     return document
@@ -285,7 +286,8 @@ def saved_document(output):
     report = json.loads((root / "run.json").read_text())
     if report.get("scenario_id") != "collisiondb-oxygen" or report.get("output_version") != OUTPUT_VERSION:
         return None
-    return {"study": json.loads((root / "study.json").read_text())["study"], "run": report}
+    from . import visuals
+    return visuals.load({"study": json.loads((root / "study.json").read_text())["study"], "run": report}, root)
 
 
 def main():
