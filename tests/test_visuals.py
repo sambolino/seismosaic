@@ -4,6 +4,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from datetime import timedelta
 from unittest.mock import patch
 
 from demo import kamchatka, model, visuals
@@ -45,6 +46,31 @@ def fixture():
 
 
 class VisualTests(unittest.TestCase):
+    def test_closeup_half_open_window_and_native_interval_support(self):
+        document = fixture()
+        window = visuals.closeup_window(document)
+        anchor = model.utc('2025-07-29T23:24:52Z')
+        self.assertEqual(window, (anchor - timedelta(hours=24), anchor + timedelta(hours=24)))
+        start, stop = window
+        locator = {'path': 'study.example', 'index': 0}
+        groups = {'test': [{'label': 'native', 'locator': locator,
+            'points': [(start - timedelta(hours=2), start + timedelta(hours=1), 10),
+                       (start - timedelta(hours=2), start, 20), (start, None, 0),
+                       (stop, None, 30), (stop - timedelta(minutes=1), stop + timedelta(hours=2), 40)],
+            'excluded': [(start, None, 'missing'), (stop, None, 'missing'),
+                         (None, None, 'missing'), (start, None, 'nonpositive')],
+            'missing': 3, 'nonpositive': 1}]}
+        before = copy.deepcopy(groups)
+        selected = visuals.timeline_window(groups, window)['test'][0]
+        self.assertEqual([point[2] for point in selected['points']], [10, 0, 40])
+        self.assertLess(selected['points'][0][0], start)  # Original support is retained.
+        self.assertGreater(selected['points'][-1][1], stop)
+        self.assertEqual(selected['missing'], 1)  # Unknown time is not assigned to the close-up.
+        self.assertEqual(selected['nonpositive'], 1)
+        self.assertEqual(groups, before)
+        del document['run']['anchor']
+        self.assertIsNone(visuals.closeup_window(document))
+
     def test_geography_date_line_outcomes_and_no_invented_positions(self):
         document = fixture()
         document['run']['request'].update({'anchor': {'latitude': 52.4948, 'longitude': 160.2395},
@@ -130,8 +156,26 @@ class VisualTests(unittest.TestCase):
             'ionospheric': {'radius_km': 3000}})
         document['run']['request']['seismic']['radius_km'] = 500
         document['study']['seismic_event@usgs:usgs-fdsn'][0]['origin'][0]['position'] = {'latitude': 52.5, 'longitude': 160.25}
+        for agency, scales in [('usgs', ['mwb', 'mb']), ('emsc', ['mb']), ('geofon', ['Mw', 'M', 'mb', 'Mw(mB)'])]:
+            for scale in scales:
+                record = copy.deepcopy(document['study']['seismic_event@usgs:usgs-fdsn'][0])
+                record['identity']['source_id'] = agency + '-' + scale
+                record['origin'][0].pop('position')
+                record['origin'][0]['magnitude'][0]['scale'] = scale
+                document['study'].setdefault('seismic_event@' + agency + ':' + agency + '-fdsn', []).append(record)
         before = copy.deepcopy(document)
-        with tempfile.TemporaryDirectory() as tmp, patch("urllib.request.urlopen", side_effect=AssertionError("Unexpected network")), patch("demo.kamchatka.request", side_effect=AssertionError("Unexpected retrieval")):
+        export = visuals.figure_files
+        def inspect_legends(figure, output, name):
+            if name in ['timeline', 'mainshock-closeup']:
+                figure.canvas.draw()
+                renderer = figure.canvas.get_renderer()
+                for ax in figure.axes:
+                    if ax.get_legend():
+                        bounds = ax.get_legend().get_window_extent(renderer)
+                        self.assertGreaterEqual(bounds.x0, ax.get_window_extent(renderer).x1)
+                        self.assertLessEqual(bounds.x1, figure.bbox.x1)
+            return export(figure, output, name)
+        with tempfile.TemporaryDirectory() as tmp, patch("urllib.request.urlopen", side_effect=AssertionError("Unexpected network")), patch("demo.kamchatka.request", side_effect=AssertionError("Unexpected retrieval")), patch('demo.visuals.figure_files', side_effect=inspect_legends):
             root = Path(tmp)
             (root / "study.json").write_text(json.dumps({"study": document["study"]}, separators=(",", ":")))
             (root / "run.json").write_text(json.dumps(document["run"], separators=(",", ":")))
@@ -139,7 +183,12 @@ class VisualTests(unittest.TestCase):
             kamchatka.save(document, root, write_science=False)
             result = document["visuals"]
             self.assertEqual(result["status"], "ok")
-            self.assertEqual(len(result["figures"]), 3)
+            self.assertEqual(len(result["figures"]), 4)
+            timeline = next(figure for figure in result['figures'] if figure['title'] == 'Temporal context')
+            closeup = next(figure for figure in result['figures'] if figure['title'] == 'Mainshock close-up · ±24 hours')
+            self.assertEqual(closeup['vertical_ranges'], timeline['vertical_ranges'])
+            self.assertEqual(closeup['time_window'], [model.stamp(value) for value in visuals.closeup_window(document)])
+            self.assertEqual(closeup['files']['png']['filename'], 'mainshock-closeup.png')
             geography = next(figure for figure in result['figures'] if figure['title'] == 'Geographic context')
             self.assertEqual(len(geography['hotspots']), 2)
             for hit in geography['hotspots']:
@@ -151,7 +200,7 @@ class VisualTests(unittest.TestCase):
             self.assertEqual((root / "run.json").read_bytes(), native_run)
             self.assertEqual({key: document[key] for key in ["study", "run"]}, before)
             self.assertIn("visuals", visuals.load(copy.deepcopy(before), root))
-            legacy = dict(result, version=1)
+            legacy = dict(result, version=2)
             (root / 'visuals.json').write_text(json.dumps(legacy))
             self.assertNotIn('visuals', visuals.load(copy.deepcopy(before), root))
             (root / 'visuals.json').write_text(json.dumps(result))
