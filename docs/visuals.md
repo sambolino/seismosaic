@@ -1,6 +1,6 @@
 # Figures from the existing study
 
-The viewer adds a coordinated UTC timeline, a geographic view, separate CollisionDB reference curves and a coverage table. Figures are generated with Matplotlib from the existing `study` and `run` objects. No provider requests, fit evaluation, common-grid interpolation or correlation analysis are added.
+The viewer adds a coordinated UTC timeline, a mainshock close-up, a geographic view, separate CollisionDB reference curves and a coverage table. Figures are generated with Matplotlib from the existing `study` and `run` objects. No provider requests, fit evaluation, common-grid interpolation or correlation analysis are added.
 
 ## Generate locally without retrieving data
 
@@ -32,8 +32,19 @@ The input must be an existing saved study. Collision curves require the X/Y layo
 - Instant/label-only values use markers; explicitly interval-supported values use horizontal segments with their actual start/end. Missing points and temporal gaps are not filled or connected.
 - Nonpositive XRS values cannot appear on a log axis. Their omission count is visible and those original values remain in the study. Missing values/times are counted separately. Native quality metadata is retained without imposing a display acceptance filter.
 - Dense point/interval artists are rasterized inside SVG to keep large series practical; axes/text remain vector. PNG and SVG represent the same input values.
+- Legends occupy a separate right-hand column outside every timeline panel, keeping high-magnitude reports and other data visible.
 
 The picture describes temporal context. It makes no statistical association, causal finding or independence claim.
+
+## Mainshock close-up
+
+The second timeline is a fixed 48-hour window: 24 hours before to 24 hours after the returned USGS preferred-origin time. It is generated automatically when that anchor time is available. The exact UTC bounds appear in its caption and sidecar metadata. A missing anchor does not trigger a guessed window.
+
+The close-up retains the overview's vertical ranges, units, logarithmic XRS scale and source distinctions. It selects instants in the half-open window and native intervals that intersect it. An interval crossing an edge is visually clipped by the axes; its stored start/end and value are not shortened or recomputed. Panel counts therefore mean represented instants or intersecting intervals, not independent observations or unique earthquakes.
+
+Missing-value and nonpositive-XRS omission counts are scoped to the close-up using available timestamps. Entries with no usable timestamp cannot be placed in the window; their full-input count is stated separately in the caption. Source-record pickers refer back to the full original records.
+
+Files are `figures/mainshock-closeup.png` and `figures/mainshock-closeup.svg`. This is a display selection only: no baseline subtraction, residual calculation, resampling, propagation-time correction or statistical test is performed.
 
 ## Reading the geographic view
 
@@ -45,7 +56,7 @@ The regional panel shows catalogue reports and GIRO sites; the detail panel make
 - Click a marker to choose among nearby records. The expandable spatial list provides the same inspection by keyboard. Seismic selections open the scientific record; GIRO selections show the native retrieval result and any linked observation series. Empty/failed retrievals never become fabricated observations.
 - Global Kp/ap, GOES irradiance and CollisionDB reference curves are not assigned station positions on this map. Selection radii do not represent physical influence, applicability or a correlation result.
 
-Both panels are included in `figures/geography.png` and `figures/geography.svg`. The visual sidecar now uses version 2; regenerate older figures offline with the command above. Scientific output versions and saved scientific JSON remain unchanged.
+Both panels are included in `figures/geography.png` and `figures/geography.svg`. The visual sidecar now uses version 3; regenerate older figures offline with the command above. Scientific output versions and saved scientific JSON remain unchanged.
 
 ## Reading the reference curves
 
@@ -71,5 +82,6 @@ The tests and browser checklist are supplied for the researcher to execute; they
 4. Select a catalogue, station/series and reference record from the figure/table pickers. Check each against its expanded original content.
 5. Export SVG, PNG and study JSON. Check that a standalone HTML result works without network access and that a narrow browser viewport remains usable.
 6. Inspect the geographic request rings and returned-anchor star. Select overlapping catalogue markers and GIRO sites with different outcomes, then compare the inspector with the saved study/run entries. Check the keyboard spatial list and marker selection after enlargement and at a narrow viewport.
+7. Check that the timeline legends are outside the axes and the M8.8 reports are visible. Inspect the ±24-hour close-up, shared vertical ranges, UTC bounds and three-hour/minute intervals at window edges. Check its source picker and PNG/SVG exports.
 
 Do not require a fixed total record count: provider results may change. Data retain their existing provider licences and acknowledgements, including GFZ CC BY 4.0, GIRO CC BY-NC-SA 4.0 and CollisionDB CC BY 4.0 with original DOI citations.

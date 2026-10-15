@@ -5,12 +5,13 @@ import hashlib
 import json
 import math
 import textwrap
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from . import model
 
-VISUAL_VERSION = 2
+VISUAL_VERSION = 3
+CLOSEUP_HOURS = 24
 PANELS = [("earthquake", "Catalogue reports", "Reported magnitude\n(native scales)", "seismic"),
           ("foF2", "Ionospheric foF2", "MHz", "ionospheric"),
           ("hmF2", "Ionospheric hmF2", "km", "ionospheric"),
@@ -67,13 +68,14 @@ def timeline_data(document):
             value = (magnitude or {}).get("value")
             groups["earthquake"].append({"label": label(key, record) + " / " + str((magnitude or {}).get("scale", "unspecified scale")),
                 "locator": locator, "points": [(when, None, value)] if when and numeric(value) else [],
-                "missing": int(not when or not numeric(value)), "nonpositive": 0})
+                "missing": int(not when or not numeric(value)), "nonpositive": 0,
+                "excluded": [(when, None, "missing")] if not when or not numeric(value) else []})
             continue
         quantities = [("foF2", "foF2"), ("hmF2", "hmF2")] if kind == "ionospheric_series" else \
                      [("Kp", "Kp"), ("ap", "ap")] if kind == "geomagnetic_series" else \
                      [("XRS", "xrs_a"), ("XRS", "xrs_b")] if kind == "solar_irradiance_series" else []
         for panel, quantity in quantities:
-            points, missing, nonpositive = [], 0, 0
+            points, excluded, missing, nonpositive = [], [], 0, 0
             native_points = record.get("points", [])
             present = any(quantity in (point.get("irradiance", {}) if panel == "XRS" else point) for point in native_points)
             if not present:
@@ -86,14 +88,42 @@ def timeline_data(document):
                 value = values.get("value")
                 if not begin or not numeric(value):
                     missing += 1
+                    excluded.append((begin, end, "missing"))
                 elif panel == "XRS" and value <= 0:
                     nonpositive += 1  # Retained in study; cannot be placed on a log ordinate.
+                    excluded.append((begin, end, "nonpositive"))
                 else:
                     points.append((begin, end, value))
             if present:
                 groups[panel].append({"label": label(key, record) + (" / " + quantity if panel == "XRS" else ""),
-                    "locator": locator, "points": points, "missing": missing, "nonpositive": nonpositive})
+                    "locator": locator, "points": points, "missing": missing, "nonpositive": nonpositive, "excluded": excluded})
     return groups
+
+
+def closeup_window(document):
+    anchor = anchor_time(document)
+    return (anchor - timedelta(hours=CLOSEUP_HOURS), anchor + timedelta(hours=CLOSEUP_HOURS)) if anchor else None
+
+
+def in_window(begin, end, window):
+    if begin is None:
+        return False
+    start, stop = window
+    return begin < stop and end > start if end and end > begin else start <= begin < stop
+
+
+def timeline_window(groups, window):
+    """Select intersecting native support, without trimming intervals or changing values."""
+    selected = {}
+    for panel, items in groups.items():
+        selected[panel] = []
+        for item in items:
+            points = [point for point in item["points"] if in_window(point[0], point[1], window)]
+            excluded = [point for point in item["excluded"] if in_window(point[0], point[1], window)]
+            selected[panel].append(dict(item, points=points, excluded=excluded,
+                missing=sum(reason == "missing" for _, _, reason in excluded),
+                nonpositive=sum(reason == "nonpositive" for _, _, reason in excluded)))
+    return selected
 
 
 def extent(record):
@@ -333,27 +363,33 @@ def figure_files(figure, output, name):
     return result
 
 
-def draw_timeline(document, groups, output, plt, mdates, LineCollection):
+def draw_timeline(document, groups, output, plt, mdates, LineCollection, *, window=None, vertical_ranges=None):
+    unlocated = sum(begin is None for items in groups.values() for item in items for begin, _, _ in item["excluded"])
+    if window:
+        groups = timeline_window(groups, window)
     request = document["run"].get("request", {})
     active = [panel for panel in PANELS if groups[panel[0]] or panel[3] in request]
     times = [time for series in groups.values() for item in series for begin, end, _ in item["points"] for time in [begin, end] if time]
     for panel in active:
-        window = request.get(panel[3], {})
-        times.extend(parsed for name in ["start", "end"] if (parsed := date(window.get(name))))
-    if not active or not times:
+        selection = request.get(panel[3], {})
+        times.extend(parsed for name in ["start", "end"] if (parsed := date(selection.get(name))))
+    if not active or (not times and not window):
         return None
-    if min(times) == max(times):
-        from datetime import timedelta
+    if window:
+        limits = window
+    elif min(times) == max(times):
         limits = (min(times) - timedelta(hours=1), max(times) + timedelta(hours=1))
     else:
         limits = (min(times), max(times))
-    fig, axes = plt.subplots(len(active), 1, figsize=(12, 2.15 * len(active) + 1.2), sharex=True, squeeze=False)
-    fig.subplots_adjust(left=.12, right=.97, top=.96, bottom=.08, hspace=.32)
+    fig, axes = plt.subplots(len(active), 1, figsize=(15.8, 2.3 * len(active) + 1.2), sharex=True, squeeze=False)
+    fig.subplots_adjust(left=.09, right=.70, top=.95, bottom=.09, hspace=.35)
+    figure_title = "Mainshock close-up · ±24 hours" if window else "Temporal context"
+    fig.suptitle(figure_title, x=.09, ha="left", fontsize=12)
     anchor = anchor_time(document)
-    locators, omissions = [], []
+    locators, omissions, ranges = [], [], {}
     for ax, (name, title, unit, family) in zip(axes[:, 0], active):
-        window = request.get(family, {})
-        begin, end = date(window.get("start")), date(window.get("end"))
+        selection = request.get(family, {})
+        begin, end = date(selection.get("start")), date(selection.get("end"))
         if begin and end:
             ax.axvspan(begin, end, color="#edf4f4", zorder=0)
         palette, plotted = {}, 0
@@ -373,11 +409,15 @@ def draw_timeline(document, groups, output, plt, mdates, LineCollection):
                 ax.scatter([point[0] for point in instants], [point[1] for point in instants], s=14 if name == "earthquake" else 4,
                            color=colour, label=item["label"], rasterized=True)
             plotted += len(item["points"])
-            locators.append(item["locator"])
-        if name == "XRS" and plotted:
+            if item["points"] or item["missing"] or item["nonpositive"]:
+                locators.append(item["locator"])
+        if name == "XRS" and (plotted or (vertical_ranges and name in vertical_ranges)):
             ax.set_yscale("log")
         if name == "Kp":
             ax.set_ylim(0, 9)
+        if vertical_ranges and name in vertical_ranges:
+            ax.set_ylim(*vertical_ranges[name])
+        ranges[name] = [float(value) for value in ax.get_ylim()]
         if not plotted:
             ax.text(.5, .5, "No plottable returned values", ha="center", va="center", transform=ax.transAxes, color="#657387")
             ax.set_yticks([])
@@ -386,7 +426,8 @@ def draw_timeline(document, groups, output, plt, mdates, LineCollection):
         handles, labels = ax.get_legend_handles_labels()
         unique = dict(zip(labels, handles))
         if unique:
-            ax.legend(unique.values(), unique.keys(), fontsize=8, loc="upper right", ncol=min(3, len(unique)), framealpha=.85)
+            ax.legend(unique.values(), unique.keys(), fontsize=8, loc="upper left", bbox_to_anchor=(1.025, 1),
+                      borderaxespad=0, ncol=1, frameon=False)
         missing = sum(item["missing"] for item in groups[name])
         nonpositive = sum(item["nonpositive"] for item in groups[name])
         ax.set_title(title + " · " + str(plotted) + (" catalogue reports" if name == "earthquake" else " values"), loc="left", fontsize=10)
@@ -399,14 +440,17 @@ def draw_timeline(document, groups, output, plt, mdates, LineCollection):
     axes[-1, 0].xaxis.set_major_locator(mdates.AutoDateLocator(minticks=3, maxticks=7, tz=model.UTC))
     axes[-1, 0].xaxis.set_major_formatter(mdates.DateFormatter("%d %b\n%H:%M", tz=model.UTC))
     axes[-1, 0].set_xlabel("UTC · orange dashed line: source-preferred USGS anchor origin" if anchor else "UTC", fontsize=9)
-    fig.text(.12, .014, "USGS / EMSC / GEOFON · GFZ: doi:10.5880/Kp.0001 (CC BY 4.0)\nGIRO: station IDs in legends; doi:10.5047/eps.2011.03.001 (CC BY-NC-SA 4.0) · NOAA/NCEI GOES-18 XRS\nTemporal context only. Tinted regions are requested windows; gaps are not filled.", fontsize=8, color="#657387")
+    fig.text(.09, .014, "USGS / EMSC / GEOFON · GFZ: doi:10.5880/Kp.0001 (CC BY 4.0)\nGIRO: station IDs in legends; doi:10.5047/eps.2011.03.001 (CC BY-NC-SA 4.0) · NOAA/NCEI GOES-18 XRS\nTemporal context only. Tinted regions are requested windows; gaps are not filled." +
+             (" Close-up: ±24 h; vertical ranges match the overview." if window else ""), fontsize=8, color="#657387")
     try:
-        files = figure_files(fig, output, "timeline")
+        files = figure_files(fig, output, "mainshock-closeup" if window else "timeline")
     finally:
         plt.close(fig)
     unique_locators = list({(item["path"], item["index"]): item for item in locators}.values())
-    return {"title": "Temporal context", "files": files, "locators": unique_locators, "omissions": omissions,
-            "caption": "Each catalogue report uses its preferred origin time and preferred magnitude; those preferences may belong to different origins. Native scales are shown in legends and alternative estimates remain in the record. No event deduplication or causal finding is asserted. Instant/label-only samples use markers; explicit support intervals use horizontal segments. Finite values with usable timestamps are shown except nonpositive XRS values, which cannot appear on a logarithmic ordinate. Quality flags are retained without a display filter. Dense marks are rasterized inside SVG; axis text stays vector."}
+    return {"title": figure_title, "files": files, "locators": unique_locators, "omissions": omissions,
+            "vertical_ranges": ranges, "time_window": [model.stamp(value) for value in limits],
+            "caption": "Each catalogue report uses its preferred origin time and preferred magnitude; those preferences may belong to different origins. Native scales are shown in legends and alternative estimates remain in the record. No event deduplication or causal finding is asserted. Instant/label-only samples use markers; explicit support intervals use horizontal segments. Finite values with usable timestamps are shown except nonpositive XRS values, which cannot appear on a logarithmic ordinate. Quality flags are retained without a display filter. Dense marks are rasterized inside SVG; axis text stays vector." +
+                ((" Close-up window [" + model.stamp(limits[0]) + ", " + model.stamp(limits[1]) + ") is centred on the returned preferred anchor time, with the overview's vertical ranges. Counts include native intervals intersecting the window; edges of those intervals are visually clipped, without shortening their stored support. Omission counts refer to this window. Across the full input, " + str(unlocated) + " quantity/report entries lack usable timestamps and cannot be assigned to this window. No baseline subtraction, resampling or response-lag correction is performed.") if window else "")}
 
 
 def curve_data(record):
@@ -481,6 +525,12 @@ def build(document, output):
     timeline = draw_timeline(document, groups, output, plt, mdates, LineCollection)
     if timeline:
         figures.append(timeline)
+        window = closeup_window(document)
+        if window:
+            closeup = draw_timeline(document, groups, output, plt, mdates, LineCollection,
+                                    window=window, vertical_ranges=timeline["vertical_ranges"])
+            if closeup:
+                figures.append(closeup)
     try:
         geography = draw_geography(document, output, plt)
         if geography:
